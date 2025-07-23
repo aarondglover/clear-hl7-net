@@ -1,7 +1,10 @@
 using System;
+using System.Linq;
 using ClearHl7;
 using ClearHl7.Serialization;
 using ClearHl7.V281;
+using ClearHl7.V281.Types;
+using ClearHl7.Extensions;
 using FluentAssertions;
 using Xunit;
 
@@ -185,6 +188,261 @@ namespace ClearHl7.Tests
             
             var testZds = (TestZdsSegment)zdsSegment;
             testZds.CustomData.Should().Be("|CUSTOM|DATA|HERE|");
+        }
+
+        [Fact]
+        public void MessageExtensions_GetSegments_ReturnsCorrectSegments()
+        {
+            // Arrange
+            SegmentFactory.RegisterSegment<TestZdsSegment>("ZDS");
+            SegmentFactory.RegisterSegment<TestAbcSegment>("ABC");
+
+            string hl7Message = 
+                "MSH|^~\\&|SYSTEM|SENDER|RECEIVER|DEST|20240101120000||ADT^A01|MSG001|P|2.8.1||||\r" +
+                "ZDS|FIELD1|FIELD2|FIELD3|\r" +
+                "ABC|TEST|DATA|\r" +
+                "ZDS|FIELD4|FIELD5|FIELD6|\r";
+
+            var message = MessageSerializer.Deserialize<Message>(hl7Message);
+
+            // Act & Assert
+            var zdsSegments = message.GetSegments("ZDS").ToArray();
+            zdsSegments.Should().HaveCount(2);
+            zdsSegments.All(s => s.Id == "ZDS").Should().BeTrue();
+
+            var abcSegments = message.GetSegments("ABC").ToArray();
+            abcSegments.Should().HaveCount(1);
+            abcSegments.First().Id.Should().Be("ABC");
+
+            var firstZds = message.GetSegment("ZDS") as TestZdsSegment;
+            firstZds.Should().NotBeNull();
+            firstZds.CustomData.Should().Be("|FIELD1|FIELD2|FIELD3|");
+        }
+
+        [Fact]
+        public void MessageExtensions_GetCustomSegments_ReturnsCustomSegmentsOnly()
+        {
+            // Arrange
+            SegmentFactory.RegisterSegment<TestZdsSegment>("ZDS");
+
+            string hl7Message = 
+                "MSH|^~\\&|SYSTEM|SENDER|RECEIVER|DEST|20240101120000||ADT^A01|MSG001|P|2.8.1||||\r" +
+                "ZDS|FIELD1|FIELD2|FIELD3|\r";
+
+            var message = MessageSerializer.Deserialize<Message>(hl7Message);
+
+            // Act
+            var customSegments = message.GetCustomSegments("ZDS").ToArray();
+            var customSegment = message.GetCustomSegment("ZDS");
+
+            // Assert
+            customSegments.Should().HaveCount(1);
+            customSegments.First().Should().BeOfType<TestZdsSegment>();
+            
+            customSegment.Should().NotBeNull();
+            customSegment.Should().BeOfType<TestZdsSegment>();
+        }
+
+        [Fact]
+        public void MessageExtensions_GetTypedSegments_ReturnsCorrectTypes()
+        {
+            // Arrange
+            SegmentFactory.RegisterSegment<TestZdsSegment>("ZDS");
+
+            string hl7Message = 
+                "MSH|^~\\&|SYSTEM|SENDER|RECEIVER|DEST|20240101120000||ADT^A01|MSG001|P|2.8.1||||\r" +
+                "ZDS|FIELD1|FIELD2|FIELD3|\r" +
+                "ZDS|FIELD4|FIELD5|FIELD6|\r";
+
+            var message = MessageSerializer.Deserialize<Message>(hl7Message);
+
+            // Act
+            var typedSegments = message.GetSegments<TestZdsSegment>("ZDS").ToArray();
+            var typedSegment = message.GetSegment<TestZdsSegment>("ZDS");
+
+            // Assert
+            typedSegments.Should().HaveCount(2);
+            typedSegments.All(s => s is TestZdsSegment).Should().BeTrue();
+            
+            typedSegment.Should().NotBeNull();
+            typedSegment.Should().BeOfType<TestZdsSegment>();
+            typedSegment.CustomData.Should().Be("|FIELD1|FIELD2|FIELD3|");
+        }
+
+        [Fact]
+        public void MessageExtensions_WithNullMessage_ThrowsArgumentNullException()
+        {
+            // Arrange
+            IMessage message = null;
+
+            // Act & Assert
+            Action act1 = () => message.GetSegments("ZDS");
+            Action act2 = () => message.GetCustomSegments("ZDS");
+            Action act3 = () => message.GetSegment("ZDS");
+            Action act4 = () => message.GetCustomSegment("ZDS");
+            Action act5 = () => message.GetAllSegments();
+
+            act1.Should().Throw<ArgumentNullException>();
+            act2.Should().Throw<ArgumentNullException>();
+            act3.Should().Throw<ArgumentNullException>();
+            act4.Should().Throw<ArgumentNullException>();
+            act5.Should().Throw<ArgumentNullException>();
+        }
+
+        [Fact]
+        public void MessageExtensions_WithInvalidSegmentId_ThrowsArgumentException()
+        {
+            // Arrange
+            var message = new Message();
+
+            // Act & Assert
+            Action act1 = () => message.GetSegments(null);
+            Action act2 = () => message.GetSegments("");
+            Action act3 = () => message.GetSegments("XX");
+            Action act4 = () => message.GetSegments("TOOLONG");
+
+            act1.Should().Throw<ArgumentException>().WithMessage("Segment ID cannot be null or empty.*");
+            act2.Should().Throw<ArgumentException>().WithMessage("Segment ID cannot be null or empty.*");
+            act3.Should().Throw<ArgumentException>().WithMessage("Segment ID must be exactly 3 characters.*");
+            act4.Should().Throw<ArgumentException>().WithMessage("Segment ID must be exactly 3 characters.*");
+        }
+
+        [Fact]
+        public void ComplexCustomSegment_WithAdvancedDataTypes_ParsesCorrectly()
+        {
+            // Arrange
+            SegmentFactory.RegisterSegment<ComplexTestSegment>("ZCX");
+
+            string hl7Message = 
+                "MSH|^~\\&|SYSTEM|SENDER|RECEIVER|DEST|20240101120000||ADT^A01|MSG001|P|2.8.1||||\r" +
+                "ZCX|REC001|SRC^Data Source^L|555-1234^WPN^PH~john@email.com^^^EMAIL|20240101120000|This is a comment with special chars\r";
+
+            // Act
+            var message = MessageSerializer.Deserialize<Message>(hl7Message);
+            var complexSegment = message.GetSegment<ComplexTestSegment>("ZCX");
+
+            // Assert
+            complexSegment.Should().NotBeNull();
+            complexSegment.RecordId.Should().Be("REC001");
+            complexSegment.DataSource.Should().NotBeNull();
+            complexSegment.DataSource.Identifier.Should().Be("SRC");
+            complexSegment.DataSource.Text.Should().Be("Data Source");
+            complexSegment.ContactInfo.Should().HaveCount(2);
+            complexSegment.ContactInfo[0].TelephoneNumber.Should().Be("555-1234");
+            complexSegment.ContactInfo[1].TelephoneNumber.Should().Be("john@email.com");
+            complexSegment.LastUpdated.Should().Be(new DateTime(2024, 1, 1, 12, 0, 0));
+            complexSegment.Comments.Should().Be("This is a comment with special chars");
+        }
+
+        [Fact]
+        public void MultipleCustomSegments_InSingleMessage_AllParsedCorrectly()
+        {
+            // Arrange
+            SegmentFactory.RegisterSegment<TestZdsSegment>("ZDS");
+            SegmentFactory.RegisterSegment<TestAbcSegment>("ABC");
+
+            string hl7Message = 
+                "MSH|^~\\&|SYSTEM|SENDER|RECEIVER|DEST|20240101120000||ADT^A01|MSG001|P|2.8.1||||\r" +
+                "ZDS|FIELD1|FIELD2|FIELD3|\r" +
+                "ABC|TEST|DATA|\r" +
+                "ZDS|FIELD4|FIELD5|FIELD6|\r" +
+                "ABC|TEST2|DATA2|\r";
+
+            // Act
+            var message = MessageSerializer.Deserialize<Message>(hl7Message);
+
+            // Assert
+            message.Segments.Should().HaveCount(5); // MSH + 2 ZDS + 2 ABC
+            
+            var zdsSegments = message.GetSegments<TestZdsSegment>("ZDS").ToArray();
+            zdsSegments.Should().HaveCount(2);
+            zdsSegments[0].CustomData.Should().Be("|FIELD1|FIELD2|FIELD3|");
+            zdsSegments[1].CustomData.Should().Be("|FIELD4|FIELD5|FIELD6|");
+
+            var abcSegments = message.GetSegments<TestAbcSegment>("ABC").ToArray();
+            abcSegments.Should().HaveCount(2);
+        }
+    }
+
+    /// <summary>
+    /// Complex test segment for advanced data type testing.
+    /// </summary>
+    public class ComplexTestSegment : ISegment
+    {
+        public string Id => "ZCX";
+        public int Ordinal { get; set; }
+        
+        public string RecordId { get; set; }
+        public CodedWithExceptions DataSource { get; set; }
+        public ExtendedTelecommunicationNumber[] ContactInfo { get; set; }
+        public DateTime? LastUpdated { get; set; }
+        public string Comments { get; set; }
+
+        public void FromDelimitedString(string delimitedString)
+        {
+            FromDelimitedString(delimitedString, null);
+        }
+
+        public void FromDelimitedString(string delimitedString, Separators separators)
+        {
+            var seps = separators ?? new Separators();
+            var fields = delimitedString?.Split(seps.FieldSeparator, StringSplitOptions.None);
+            
+            if (fields == null || fields.Length == 0) return;
+
+            if (fields.Length > 1) RecordId = fields[1];
+            
+            if (fields.Length > 2 && !string.IsNullOrEmpty(fields[2]))
+            {
+                DataSource = new CodedWithExceptions();
+                DataSource.FromDelimitedString(fields[2], seps);
+            }
+
+            if (fields.Length > 3 && !string.IsNullOrEmpty(fields[3]))
+            {
+                var contactElements = fields[3].Split(seps.FieldRepeatSeparator, StringSplitOptions.None);
+                ContactInfo = new ExtendedTelecommunicationNumber[contactElements.Length];
+                for (int i = 0; i < contactElements.Length; i++)
+                {
+                    ContactInfo[i] = new ExtendedTelecommunicationNumber();
+                    ContactInfo[i].FromDelimitedString(contactElements[i], seps);
+                }
+            }
+
+            if (fields.Length > 4 && !string.IsNullOrEmpty(fields[4]))
+            {
+                if (DateTime.TryParseExact(fields[4], "yyyyMMddHHmmss", null, 
+                    System.Globalization.DateTimeStyles.None, out DateTime timestamp))
+                {
+                    LastUpdated = timestamp;
+                }
+            }
+
+            if (fields.Length > 5 && !string.IsNullOrEmpty(fields[5]))
+            {
+                Comments = Helpers.StringHelper.Unescape(fields[5]);
+            }
+        }
+
+        public string ToDelimitedString()
+        {
+            var seps = new Separators();
+            var fields = new string[6];
+            
+            fields[0] = Id;
+            fields[1] = RecordId;
+            fields[2] = DataSource?.ToDelimitedString();
+            
+            if (ContactInfo?.Length > 0)
+            {
+                fields[3] = string.Join(seps.FieldRepeatSeparator.ToString(), 
+                    ContactInfo.Select(ci => ci?.ToDelimitedString() ?? string.Empty));
+            }
+            
+            fields[4] = LastUpdated?.ToString("yyyyMMddHHmmss");
+            fields[5] = !string.IsNullOrEmpty(Comments) ? Helpers.StringHelper.Escape(Comments) : null;
+
+            return string.Join(seps.FieldSeparator.ToString(), fields);
         }
     }
 
