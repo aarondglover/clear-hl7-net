@@ -252,18 +252,22 @@ Hl7Version version = MessageHelper.DetectVersion(messageString);
 
 ## Example: Creating an Instance of a ClearHl7 Message for a Specific Version
 Let's create a Message instance with a specific HL7 version.
+
+### Using MessageHelper Static Methods
 ```csharp
 using ClearHl7;
 using ClearHl7.Helpers;
 
 // [...]
 
-// Create a new Message instance for V2.8.1
+// Create a new Message instance for V2.8.1 using static method
 IMessage message = MessageHelper.NewInstance(Hl7Version.V281);
 
 // Returns:
 //      An instance of ClearHl7.V281.Message
 ```
+
+**Note:** MessageHelper currently only provides static methods for optimal performance. The class is designed as a utility class and does not implement an interface for dependency injection scenarios.
 
 ## Customizing
 ### Delimiter Characters
@@ -283,22 +287,72 @@ Configuration.ResetSeparators();
 
 ## Using the ClearHl7.Codes Component
 There are code systems published as part of the HL7 specification, which are recommended for use in your messages.  You have flexibility, of course, to use any coded values that you and your message consumer might agree upon.  To easily access the defined codes you may utilize the `ClearHl7.Codes` component, which contains enumerations for each.
+
+### Using EnumHelper as Static Methods (Optimal Performance)
+For optimal performance, use the static methods directly:
 ```csharp
 using ClearHl7.Codes.V282;
 using ClearHl7.Codes.V282.Helpers;
 
 // [...]
 
-var helper = new EnumHelper();
+// Example using the MaritalStatus and YesNoIndicator codes
+// Call EnumHelper.EnumToCode() static methods to receive the
+// actual coded string for a given enum value
+pidSegment.MaritalStatus = new CodedWithExceptions
+{
+    Identifier = EnumHelper.EnumToCode(CodeMaritalStatus.Married)
+};
+pidSegment.MultipleBirthIndicator = EnumHelper.EnumToCode(CodeYesNoIndicator.No);
+```
+
+### Using EnumHelper as Instance Methods (Dependency Injection Support)
+For dependency injection scenarios or when working with interfaces, create an instance and use through the interface:
+```csharp
+using ClearHl7.Codes.V282;
+using ClearHl7.Codes.V282.Helpers;
+
+// [...]
+
+// Create an instance for dependency injection or interface-based usage
+IEnumHelper helper = new EnumHelper();
+
+// Or inject via IEnumHelper interface
+private readonly IEnumHelper _enumHelper;
 
 // Example using the MaritalStatus and YesNoIndicator codes
-// You must call EnumHelper.EnumToCode() to receive the
-// actual coded string for a given enum value
 pidSegment.MaritalStatus = new CodedWithExceptions
 {
     Identifier = helper.EnumToCode(CodeMaritalStatus.Married)
 };
 pidSegment.MultipleBirthIndicator = helper.EnumToCode(CodeYesNoIndicator.No);
+```
+
+### Dependency Injection Registration
+When using dependency injection containers, register the EnumHelper:
+```csharp
+// For .NET Core DI container
+services.AddScoped<IEnumHelper, EnumHelper>();
+
+// For Autofac
+builder.RegisterType<EnumHelper>().As<IEnumHelper>();
+
+// Then inject into your services
+public class MyService
+{
+    private readonly IEnumHelper _enumHelper;
+    
+    public MyService(IEnumHelper enumHelper)
+    {
+        _enumHelper = enumHelper;
+    }
+    
+    public void ProcessMessage()
+    {
+        var code = _enumHelper.EnumToCode(CodeMaritalStatus.Single);
+        // ... use the code
+    }
+}
 ```
 
 ## Custom Segments
