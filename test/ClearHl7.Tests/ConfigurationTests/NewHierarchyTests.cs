@@ -24,7 +24,7 @@ namespace ClearHl7.Tests.ConfigurationTests
             string originalFormat = Consts.DateTimeFormatPrecisionMinute; // Different from Second to test
             
             // Act - Use new extension method with explicit original format
-            string result = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "TestProperty", originalFormat);
+            string result = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "TestProperty", originalFormat, System.Globalization.CultureInfo.CurrentCulture);
             
             // Assert - Should use the original format specified in code
             string expected = _testDateTime.ToString(originalFormat, System.Globalization.CultureInfo.CurrentCulture);
@@ -40,7 +40,7 @@ namespace ClearHl7.Tests.ConfigurationTests
             Hl7DateTimeFormatConfig.GlobalDateTimeFormatOverride = Consts.DateFormatPrecisionDay;
             
             // Act
-            string result = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "TestProperty", originalFormat);
+            string result = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "TestProperty", originalFormat, System.Globalization.CultureInfo.CurrentCulture);
             
             // Assert - Should use global override instead of original format
             Assert.Equal("20240315", result); // Day precision from global override
@@ -55,7 +55,7 @@ namespace ClearHl7.Tests.ConfigurationTests
             Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Consts.DateFormatPrecisionYear);
             
             // Act
-            string result = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "DateTimeOfMessage", originalFormat);
+            string result = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "DateTimeOfMessage", originalFormat, System.Globalization.CultureInfo.CurrentCulture);
             
             // Assert - Should use individual field override (highest priority)
             Assert.Equal("2024", result); // Year precision from field override
@@ -65,13 +65,14 @@ namespace ClearHl7.Tests.ConfigurationTests
         public void NewApproach_DifferentFieldSameSegment_UsesCorrectOverride()
         {
             // Arrange
+            Hl7DateTimeFormatConfig.ClearFieldPrecisions(); // Ensure clean state
             string originalFormat = Consts.DateTimeFormatPrecisionSecond;
             Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Consts.DateFormatPrecisionYear);
             
             // Act - Test field with override
-            string resultWithOverride = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "DateTimeOfMessage", originalFormat);
+            string resultWithOverride = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "DateTimeOfMessage", originalFormat, System.Globalization.CultureInfo.CurrentCulture);
             // Act - Test different field without override
-            string resultWithoutOverride = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "OtherProperty", originalFormat);
+            string resultWithoutOverride = _testDateTime.ToHl7DateTimeString(typeof(MshSegment), "OtherProperty", originalFormat, System.Globalization.CultureInfo.CurrentCulture);
             
             // Assert
             Assert.Equal("2024", resultWithOverride); // Uses field override

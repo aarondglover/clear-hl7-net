@@ -18,36 +18,6 @@ namespace ClearHl7
         // Use (segmentType, propertyName) as the key for per-field precision
         private static readonly Dictionary<(Type, string), string> FieldPrecisions = new();
 
-        // Track original field precisions - this preserves the original behavior
-        // NOTE: This approach is deprecated. Original precisions should be defined directly in the code calls.
-        [Obsolete("OriginalFieldPrecisions is deprecated. Use the new ToHl7DateTimeString overload with originalFormat parameter")]
-        private static readonly Dictionary<(Type, string), string> OriginalFieldPrecisions = new();
-
-        [Obsolete("Static constructor approach is deprecated. Original precisions should be defined directly in the code calls.")]
-        static Hl7DateTimeFormatConfig()
-        {
-            // NOTE: This static constructor approach is being phased out.
-            // Original precisions should be specified directly in the code where DateTime formatting occurs.
-            // Initialize original precisions based on the original codebase
-            // These preserve the original field-specific precisions from the codebase
-            SetOriginalPrecision<ClearHl7.V251.Segments.MshSegment>("DateTimeOfMessage", Consts.DateTimeFormatPrecisionSecond);
-            SetOriginalPrecision<ClearHl7.V251.Segments.EvnSegment>("RecordedDateTime", Consts.DateTimeFormatPrecisionSecond);
-            SetOriginalPrecision<ClearHl7.V251.Segments.EvnSegment>("DateTimePlannedEvent", Consts.DateTimeFormatPrecisionSecond);
-            SetOriginalPrecision<ClearHl7.V251.Segments.EvnSegment>("EventOccurred", Consts.DateTimeFormatPrecisionSecond);
-            
-            // Add other original precisions as they are discovered
-            // Fields that originally used day precision should be added here
-        }
-
-        /// <summary>
-        /// Sets the original precision for a field (used internally to preserve original behavior).
-        /// </summary>
-        [Obsolete("SetOriginalPrecision is deprecated. Use the new ToHl7DateTimeString overload with originalFormat parameter")]
-        private static void SetOriginalPrecision<TSegment>(string propertyName, string format)
-        {
-            OriginalFieldPrecisions[(typeof(TSegment), propertyName)] = format;
-        }
-
         /// <summary>
         /// Sets the DateTime format for a specific field in a type-safe manner.
         /// </summary>
@@ -94,35 +64,6 @@ namespace ClearHl7
 
             // 3. Use original field precision (as defined in the original code)
             return originalFormat;
-        }
-
-        /// <summary>
-        /// Gets the DateTime format for a specific field, respecting the hierarchy:
-        /// 1. Individual field override (if set)
-        /// 2. Global override (if set) 
-        /// 3. Original field precision (preserved from original codebase)
-        /// 4. Fallback to second precision if no original precision is known
-        /// </summary>
-        /// <param name="segmentType">The type of the segment or type containing the field.</param>
-        /// <param name="propertyName">The name of the DateTime property.</param>
-        /// <returns>The DateTime format string to use for this field.</returns>
-        [Obsolete("Use GetFormatForField(Type, string, string) overload that accepts originalFormat parameter")]
-        public static string GetFormatForField(Type segmentType, string propertyName)
-        {
-            // 1. Check for individual field override first
-            if (FieldPrecisions.TryGetValue((segmentType, propertyName), out var fieldFormat))
-                return fieldFormat;
-
-            // 2. Check for global override
-            if (GlobalDateTimeFormatOverride != null)
-                return GlobalDateTimeFormatOverride;
-
-            // 3. Use original field precision (preserves original behavior)
-            if (OriginalFieldPrecisions.TryGetValue((segmentType, propertyName), out var originalFormat))
-                return originalFormat;
-
-            // 4. Fallback to second precision (should rarely be needed)
-            return Consts.DateTimeFormatPrecisionSecond;
         }
 
         /// <summary>
