@@ -48,33 +48,6 @@ using ClearHl7.V282.Segments;
 using ClearHl7.V282.Types;
 ```
 
-## Usage Patterns: Static Methods vs Instance Methods
-
-clear-hl7-net is designed to support both high-performance scenarios and modern dependency injection patterns:
-
-### Static Methods (Optimal Performance)
-For maximum performance, use static methods directly. This approach has minimal memory overhead and is fastest for simple scenarios:
-```csharp
-// Fast, direct usage
-string code = EnumHelper.EnumToCode(CodeMaritalStatus.Married);
-IMessage message = MessageHelper.NewInstance(Hl7Version.V282);
-```
-
-### Instance Methods (Dependency Injection & Interface Support)
-For dependency injection, testability, and interface-based architectures, use instance methods:
-```csharp
-// Interface-based usage supporting dependency injection
-IEnumHelper enumHelper = new EnumHelper();
-string code = enumHelper.EnumToCode(CodeMaritalStatus.Married);
-```
-
-### Backward Compatibility
-Both patterns are fully supported and backward compatible. Choose the approach that best fits your architecture:
-- **Static methods**: Best for simple applications, console tools, and performance-critical scenarios
-- **Instance methods**: Best for web applications, services, and when using dependency injection frameworks
-
-All helper classes that support instance methods implement corresponding interfaces (e.g., `IEnumHelper`) for easy mocking and testing.
-
 ## HL7 Messages, Conceptually
 HL7 Version 2.x messages consist of a collection of segments, with the MSH segment being required and appearing first.  Each segment is presented as a string on a single line, as a series of field values that are delimited with special characters indicating the position and nesting of each value.  Conceptually simple enough, but not very human-readable, and confusing to build correctly without the right tool.  clear-hl7-net represents this composition using a hierarchical class structure that is easy to interact with.  Pseudo example:
 * Message
