@@ -4,12 +4,16 @@ namespace ClearHl7.Codes.V230.Helpers
 {
     /// <summary>
     /// Provides helper methods for interacting with enumerations.
-    /// For performance-critical scenarios, consider using the static EnumCodes class.
+    /// Static methods are available for optimal performance.
     /// </summary>
     public class EnumHelper : IEnumHelper
     {
-        /// <inheritdoc/>
-        public string EnumToCode(CodeAcceptApplicationAcknowledgmentConditions input)
+        /// <summary>
+        /// Converts the given CodeAcceptApplicationAcknowledgmentConditions enum value into its HL7 equivalent code.
+        /// </summary>
+        /// <param name="input">An enum value to convert.</param>
+        /// <returns>A string.</returns>
+        public static string EnumToCode(CodeAcceptApplicationAcknowledgmentConditions input)
         {
             return input switch
             {
@@ -22,7 +26,14 @@ namespace ClearHl7.Codes.V230.Helpers
         }
 
         /// <inheritdoc/>
-        public string EnumToCode(CodeAcknowledgmentCode input)
+        string IEnumHelper.EnumToCode(CodeAcceptApplicationAcknowledgmentConditions input) => EnumToCode(input);
+
+        /// <summary>
+        /// Converts the given CodeAcknowledgmentCode enum value into its HL7 equivalent code.
+        /// </summary>
+        /// <param name="input">An enum value to convert.</param>
+        /// <returns>A string.</returns>
+        public static string EnumToCode(CodeAcknowledgmentCode input)
         {
             return input switch
             {
@@ -35,6 +46,9 @@ namespace ClearHl7.Codes.V230.Helpers
                 _ => throw new NotImplementedException()
             };
         }
+
+        /// <inheritdoc/>
+        string IEnumHelper.EnumToCode(CodeAcknowledgmentCode input) => EnumToCode(input);
 
         /// <inheritdoc/>
         public string EnumToCode(CodeActionCode input)
@@ -3505,62 +3519,6 @@ namespace ClearHl7.Codes.V230.Helpers
 
         /// <inheritdoc/>
         public string EnumToCode(CodeYesNoIndicator input)
-        {
-            return input switch
-            {
-                CodeYesNoIndicator.No => "N",
-                CodeYesNoIndicator.Yes => "Y",
-                _ => throw new NotImplementedException()
-            };
-        }
-    }
-
-    /// <summary>
-    /// Provides static helper methods for interacting with enumerations.
-    /// This class offers the same functionality as EnumHelper but through static methods for improved performance.
-    /// </summary>
-    public static class EnumCodes
-    {
-        /// <summary>
-        /// Converts the given CodeAcceptApplicationAcknowledgmentConditions enum value into its HL7 equivalent code.
-        /// </summary>
-        /// <param name="input">An enum value to convert.</param>
-        /// <returns>A string.</returns>
-        public static string GetCode(CodeAcceptApplicationAcknowledgmentConditions input)
-        {
-            return input switch
-            {
-                CodeAcceptApplicationAcknowledgmentConditions.Always => "AL",
-                CodeAcceptApplicationAcknowledgmentConditions.ErrorRejectConditionsOnly => "ER",
-                CodeAcceptApplicationAcknowledgmentConditions.Never => "NE",
-                CodeAcceptApplicationAcknowledgmentConditions.SuccessfulCompletionOnly => "SU",
-                _ => throw new NotImplementedException()
-            };
-        }
-
-        /// <summary>
-        /// Converts the given CodeAdministrativeSex enum value into its HL7 equivalent code.
-        /// </summary>
-        /// <param name="input">An enum value to convert.</param>
-        /// <returns>A string.</returns>
-        public static string GetCode(CodeAdministrativeSex input)
-        {
-            return input switch
-            {
-                CodeAdministrativeSex.Female => "F",
-                CodeAdministrativeSex.Male => "M",
-                CodeAdministrativeSex.Other => "O",
-                CodeAdministrativeSex.Unknown => "U",
-                _ => throw new NotImplementedException()
-            };
-        }
-
-        /// <summary>
-        /// Converts the given CodeYesNoIndicator enum value into its HL7 equivalent code.
-        /// </summary>
-        /// <param name="input">An enum value to convert.</param>
-        /// <returns>A string.</returns>
-        public static string GetCode(CodeYesNoIndicator input)
         {
             return input switch
             {
