@@ -156,12 +156,42 @@ namespace ClearHl7.Extensions
         }
 
         /// <summary>
+        /// Formats a DateTime value using per-field configuration with explicit original precision.
+        /// Follows the hierarchy: 1) Individual field override, 2) Global override, 3) Original code-defined precision.
+        /// </summary>
+        /// <param name="dateTime">The DateTime value to format.</param>
+        /// <param name="segmentType">The type of the segment containing this field.</param>
+        /// <param name="propertyName">The name of the property being formatted.</param>
+        /// <param name="originalFormat">The original format defined in the code for this specific field.</param>
+        /// <returns>A formatted string representation of the DateTime value using the configured hierarchy.</returns>
+        public static string ToHl7DateTimeString(this DateTime dateTime, Type segmentType, string propertyName, string originalFormat)
+        {
+            string format = Hl7DateTimeFormatConfig.GetFormatForField(segmentType, propertyName, originalFormat);
+            return dateTime.ToString(format, CultureInfo.CurrentCulture);
+        }
+
+        /// <summary>
+        /// Formats a nullable DateTime value using per-field configuration with explicit original precision.
+        /// Follows the hierarchy: 1) Individual field override, 2) Global override, 3) Original code-defined precision.
+        /// </summary>
+        /// <param name="dateTime">The nullable DateTime value to format.</param>
+        /// <param name="segmentType">The type of the segment containing this field.</param>
+        /// <param name="propertyName">The name of the property being formatted.</param>
+        /// <param name="originalFormat">The original format defined in the code for this specific field.</param>
+        /// <returns>A formatted string representation of the DateTime value using the configured hierarchy, or null if the input is null.</returns>
+        public static string ToHl7DateTimeString(this DateTime? dateTime, Type segmentType, string propertyName, string originalFormat)
+        {
+            return dateTime.HasValue ? dateTime.Value.ToHl7DateTimeString(segmentType, propertyName, originalFormat) : null;
+        }
+
+        /// <summary>
         /// Formats a DateTime value using per-field configuration with fallback to global default.
         /// </summary>
         /// <param name="dateTime">The DateTime value to format.</param>
         /// <param name="segmentType">The type of the segment containing this field.</param>
         /// <param name="propertyName">The name of the property being formatted.</param>
         /// <returns>A formatted string representation of the DateTime value using field-specific or default formatting.</returns>
+        [Obsolete("Use ToHl7DateTimeString(DateTime, Type, string, string) overload that accepts originalFormat parameter")]
         public static string ToHl7DateTimeString(this DateTime dateTime, Type segmentType, string propertyName)
         {
             string format = Hl7DateTimeFormatConfig.GetFormatForField(segmentType, propertyName);
@@ -175,6 +205,7 @@ namespace ClearHl7.Extensions
         /// <param name="segmentType">The type of the segment containing this field.</param>
         /// <param name="propertyName">The name of the property being formatted.</param>
         /// <returns>A formatted string representation of the DateTime value using field-specific or default formatting, or null if the input is null.</returns>
+        [Obsolete("Use ToHl7DateTimeString(DateTime?, Type, string, string) overload that accepts originalFormat parameter")]
         public static string ToHl7DateTimeString(this DateTime? dateTime, Type segmentType, string propertyName)
         {
             return dateTime.HasValue ? dateTime.Value.ToHl7DateTimeString(segmentType, propertyName) : null;

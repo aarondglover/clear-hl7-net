@@ -19,10 +19,15 @@ namespace ClearHl7
         private static readonly Dictionary<(Type, string), string> FieldPrecisions = new();
 
         // Track original field precisions - this preserves the original behavior
+        // NOTE: This approach is deprecated. Original precisions should be defined directly in the code calls.
+        [Obsolete("OriginalFieldPrecisions is deprecated. Use the new ToHl7DateTimeString overload with originalFormat parameter")]
         private static readonly Dictionary<(Type, string), string> OriginalFieldPrecisions = new();
 
+        [Obsolete("Static constructor approach is deprecated. Original precisions should be defined directly in the code calls.")]
         static Hl7DateTimeFormatConfig()
         {
+            // NOTE: This static constructor approach is being phased out.
+            // Original precisions should be specified directly in the code where DateTime formatting occurs.
             // Initialize original precisions based on the original codebase
             // These preserve the original field-specific precisions from the codebase
             SetOriginalPrecision<ClearHl7.V251.Segments.MshSegment>("DateTimeOfMessage", Consts.DateTimeFormatPrecisionSecond);
@@ -37,6 +42,7 @@ namespace ClearHl7
         /// <summary>
         /// Sets the original precision for a field (used internally to preserve original behavior).
         /// </summary>
+        [Obsolete("SetOriginalPrecision is deprecated. Use the new ToHl7DateTimeString overload with originalFormat parameter")]
         private static void SetOriginalPrecision<TSegment>(string propertyName, string format)
         {
             OriginalFieldPrecisions[(typeof(TSegment), propertyName)] = format;
@@ -70,12 +76,37 @@ namespace ClearHl7
         /// Gets the DateTime format for a specific field, respecting the hierarchy:
         /// 1. Individual field override (if set)
         /// 2. Global override (if set) 
+        /// 3. Original field precision (as defined in the original code)
+        /// </summary>
+        /// <param name="segmentType">The type of the segment or type containing the field.</param>
+        /// <param name="propertyName">The name of the DateTime property.</param>
+        /// <param name="originalFormat">The original format defined in the code for this specific field.</param>
+        /// <returns>The DateTime format string to use for this field.</returns>
+        public static string GetFormatForField(Type segmentType, string propertyName, string originalFormat)
+        {
+            // 1. Check for individual field override first
+            if (FieldPrecisions.TryGetValue((segmentType, propertyName), out var fieldFormat))
+                return fieldFormat;
+
+            // 2. Check for global override
+            if (GlobalDateTimeFormatOverride != null)
+                return GlobalDateTimeFormatOverride;
+
+            // 3. Use original field precision (as defined in the original code)
+            return originalFormat;
+        }
+
+        /// <summary>
+        /// Gets the DateTime format for a specific field, respecting the hierarchy:
+        /// 1. Individual field override (if set)
+        /// 2. Global override (if set) 
         /// 3. Original field precision (preserved from original codebase)
         /// 4. Fallback to second precision if no original precision is known
         /// </summary>
         /// <param name="segmentType">The type of the segment or type containing the field.</param>
         /// <param name="propertyName">The name of the DateTime property.</param>
         /// <returns>The DateTime format string to use for this field.</returns>
+        [Obsolete("Use GetFormatForField(Type, string, string) overload that accepts originalFormat parameter")]
         public static string GetFormatForField(Type segmentType, string propertyName)
         {
             // 1. Check for individual field override first
