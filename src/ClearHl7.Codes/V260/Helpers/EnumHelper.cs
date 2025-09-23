@@ -4,19 +4,16 @@ namespace ClearHl7.Codes.V260.Helpers
 {
     /// <summary>
     /// Provides helper methods for interacting with enumerations.
+    /// Static methods are available for optimal performance.
     /// </summary>
     public class EnumHelper : IEnumHelper
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="EnumHelper"/> class.
+        /// Converts the given CodeAcceptApplicationAcknowledgmentConditions enum value into its HL7 equivalent code.
         /// </summary>
-        public EnumHelper()
-        {
-
-        }
-
-        /// <inheritdoc/>
-        public string EnumToCode(CodeAcceptApplicationAcknowledgmentConditions input)
+        /// <param name="input">An enum value to convert.</param>
+        /// <returns>A string.</returns>
+        public static string EnumToCode(CodeAcceptApplicationAcknowledgmentConditions input)
         {
             return input switch
             {
@@ -29,7 +26,14 @@ namespace ClearHl7.Codes.V260.Helpers
         }
 
         /// <inheritdoc/>
-        public string EnumToCode(CodeAccessRestrictionReasonCode input)
+        string IEnumHelper.EnumToCode(CodeAcceptApplicationAcknowledgmentConditions input) => EnumToCode(input);
+
+        /// <summary>
+        /// Converts the given CodeAccessRestrictionReasonCode enum value into its HL7 equivalent code.
+        /// </summary>
+        /// <param name="input">An enum value to convert.</param>
+        /// <returns>A string.</returns>
+        public static string EnumToCode(CodeAccessRestrictionReasonCode input)
         {
             return input switch
             {
@@ -43,6 +47,9 @@ namespace ClearHl7.Codes.V260.Helpers
                 _ => throw new NotImplementedException()
             };
         }
+
+        /// <inheritdoc/>
+        string IEnumHelper.EnumToCode(CodeAccessRestrictionReasonCode input) => EnumToCode(input);
 
         /// <inheritdoc/>
         public string EnumToCode(CodeAccessRestrictionValue input)
