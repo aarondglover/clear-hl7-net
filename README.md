@@ -48,6 +48,33 @@ using ClearHl7.V282.Segments;
 using ClearHl7.V282.Types;
 ```
 
+## Usage Patterns: Static Methods vs Instance Methods
+
+clear-hl7-net is designed to support both high-performance scenarios and modern dependency injection patterns:
+
+### Static Methods (Optimal Performance)
+For maximum performance, use static methods directly. This approach has minimal memory overhead and is fastest for simple scenarios:
+```csharp
+// Fast, direct usage
+string code = EnumHelper.EnumToCode(CodeMaritalStatus.Married);
+IMessage message = MessageHelper.NewInstance(Hl7Version.V282);
+```
+
+### Instance Methods (Dependency Injection & Interface Support)
+For dependency injection, testability, and interface-based architectures, use instance methods:
+```csharp
+// Interface-based usage supporting dependency injection
+IEnumHelper enumHelper = new EnumHelper();
+string code = enumHelper.EnumToCode(CodeMaritalStatus.Married);
+```
+
+### Backward Compatibility
+Both patterns are fully supported and backward compatible. Choose the approach that best fits your architecture:
+- **Static methods**: Best for simple applications, console tools, and performance-critical scenarios
+- **Instance methods**: Best for web applications, services, and when using dependency injection frameworks
+
+All helper classes that support instance methods implement corresponding interfaces (e.g., `IEnumHelper`) for easy mocking and testing.
+
 ## HL7 Messages, Conceptually
 HL7 Version 2.x messages consist of a collection of segments, with the MSH segment being required and appearing first.  Each segment is presented as a string on a single line, as a series of field values that are delimited with special characters indicating the position and nesting of each value.  Conceptually simple enough, but not very human-readable, and confusing to build correctly without the right tool.  clear-hl7-net represents this composition using a hierarchical class structure that is easy to interact with.  Pseudo example:
 * Message
@@ -252,18 +279,22 @@ Hl7Version version = MessageHelper.DetectVersion(messageString);
 
 ## Example: Creating an Instance of a ClearHl7 Message for a Specific Version
 Let's create a Message instance with a specific HL7 version.
+
+### Using MessageHelper Static Methods
 ```csharp
 using ClearHl7;
 using ClearHl7.Helpers;
 
 // [...]
 
-// Create a new Message instance for V2.8.1
+// Create a new Message instance for V2.8.1 using static method
 IMessage message = MessageHelper.NewInstance(Hl7Version.V281);
 
 // Returns:
 //      An instance of ClearHl7.V281.Message
 ```
+
+**Note:** MessageHelper currently only provides static methods for optimal performance. The class is designed as a utility class and does not implement an interface for dependency injection scenarios.
 
 ## Customizing
 ### Delimiter Characters
@@ -283,22 +314,72 @@ Configuration.ResetSeparators();
 
 ## Using the ClearHl7.Codes Component
 There are code systems published as part of the HL7 specification, which are recommended for use in your messages.  You have flexibility, of course, to use any coded values that you and your message consumer might agree upon.  To easily access the defined codes you may utilize the `ClearHl7.Codes` component, which contains enumerations for each.
+
+### Using EnumHelper as Static Methods (Optimal Performance)
+For optimal performance, use the static methods directly:
 ```csharp
 using ClearHl7.Codes.V282;
 using ClearHl7.Codes.V282.Helpers;
 
 // [...]
 
+// Example using the MaritalStatus and YesNoIndicator codes
+// Call EnumHelper.EnumToCode() static methods to receive the
+// actual coded string for a given enum value
+pidSegment.MaritalStatus = new CodedWithExceptions
+{
+    Identifier = EnumHelper.EnumToCode(CodeMaritalStatus.Married)
+};
+pidSegment.MultipleBirthIndicator = EnumHelper.EnumToCode(CodeYesNoIndicator.No);
+```
+
+### Using EnumHelper as Instance Methods (Dependency Injection Support)
+For dependency injection scenarios or when working with interfaces, create an instance:
+```csharp
+using ClearHl7.Codes.V282;
+using ClearHl7.Codes.V282.Helpers;
+
+// [...]
+
+// Create an instance for dependency injection or interface-based usage
 var helper = new EnumHelper();
 
+// Or inject via IEnumHelper interface
+private readonly IEnumHelper _enumHelper;
+
 // Example using the MaritalStatus and YesNoIndicator codes
-// You must call EnumHelper.EnumToCode() to receive the
-// actual coded string for a given enum value
 pidSegment.MaritalStatus = new CodedWithExceptions
 {
     Identifier = helper.EnumToCode(CodeMaritalStatus.Married)
 };
 pidSegment.MultipleBirthIndicator = helper.EnumToCode(CodeYesNoIndicator.No);
+```
+
+### Dependency Injection Registration
+When using dependency injection containers, register the EnumHelper:
+```csharp
+// For .NET Core DI container
+services.AddScoped<IEnumHelper, EnumHelper>();
+
+// For Autofac
+builder.RegisterType<EnumHelper>().As<IEnumHelper>();
+
+// Then inject into your services
+public class MyService
+{
+    private readonly IEnumHelper _enumHelper;
+    
+    public MyService(IEnumHelper enumHelper)
+    {
+        _enumHelper = enumHelper;
+    }
+    
+    public void ProcessMessage()
+    {
+        var code = _enumHelper.EnumToCode(CodeMaritalStatus.Single);
+        // ... use the code
+    }
+}
 ```
 
 ## Custom Segments
