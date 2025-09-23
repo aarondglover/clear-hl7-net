@@ -334,7 +334,7 @@ pidSegment.MultipleBirthIndicator = EnumHelper.EnumToCode(CodeYesNoIndicator.No)
 ```
 
 ### Using EnumHelper as Instance Methods (Dependency Injection Support)
-For dependency injection scenarios or when working with interfaces, create an instance:
+For dependency injection scenarios or when working with interfaces, create an instance and use through the interface:
 ```csharp
 using ClearHl7.Codes.V282;
 using ClearHl7.Codes.V282.Helpers;
@@ -342,7 +342,7 @@ using ClearHl7.Codes.V282.Helpers;
 // [...]
 
 // Create an instance for dependency injection or interface-based usage
-var helper = new EnumHelper();
+IEnumHelper helper = new EnumHelper();
 
 // Or inject via IEnumHelper interface
 private readonly IEnumHelper _enumHelper;
