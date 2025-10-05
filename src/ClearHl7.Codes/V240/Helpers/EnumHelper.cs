@@ -4,7 +4,6 @@ namespace ClearHl7.Codes.V240.Helpers
 {
     /// <summary>
     /// Provides helper methods for interacting with enumerations.
-    /// Static methods are available for optimal performance.
     /// </summary>
     public class EnumHelper : IEnumHelper
     {
