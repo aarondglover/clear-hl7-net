@@ -10,7 +10,7 @@ namespace ClearHl7
     /// </summary>
     public static class Hl7DateTimeFormatConfig
     {
-        private static readonly object _lock = new object();
+        private static readonly object _globalOverrideLock = new object();
         private static string _globalDateTimeFormatOverride = null;
 
         /// <summary>
@@ -21,14 +21,14 @@ namespace ClearHl7
         {
             get
             {
-                lock (_lock)
+                lock (_globalOverrideLock)
                 {
                     return _globalDateTimeFormatOverride;
                 }
             }
             set
             {
-                lock (_lock)
+                lock (_globalOverrideLock)
                 {
                     _globalDateTimeFormatOverride = value;
                 }
@@ -79,7 +79,9 @@ namespace ClearHl7
                 return fieldFormat;
 
             // 2. Check for global override
-            // Reading reference type field is atomic, no lock needed for read
+            // Performance optimization: Direct field access is used here instead of the property
+            // because reference type reads are atomic in .NET, and this is a hot path.
+            // The property accessor uses locks for explicit external access through the public API.
             var globalOverride = _globalDateTimeFormatOverride;
             if (globalOverride != null)
                 return globalOverride;
@@ -101,7 +103,7 @@ namespace ClearHl7
         /// </summary>
         public static void ClearGlobalOverride()
         {
-            lock (_lock)
+            lock (_globalOverrideLock)
             {
                 _globalDateTimeFormatOverride = null;
             }
@@ -125,7 +127,7 @@ namespace ClearHl7
         {
             get
             {
-                lock (_lock)
+                lock (_globalOverrideLock)
                 {
                     return _globalDateTimeFormatOverride != null;
                 }
