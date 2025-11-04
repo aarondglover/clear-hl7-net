@@ -79,7 +79,8 @@ namespace ClearHl7
                 return fieldFormat;
 
             // 2. Check for global override
-            var globalOverride = GlobalDateTimeFormatOverride;
+            // Reading reference type field is atomic, no lock needed for read
+            var globalOverride = _globalDateTimeFormatOverride;
             if (globalOverride != null)
                 return globalOverride;
 
