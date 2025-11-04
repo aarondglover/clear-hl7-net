@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
@@ -35,7 +36,7 @@ namespace ClearHl7
         }
 
         // Use (segmentType, propertyName) as the key for per-field precision
-        private static readonly Dictionary<(Type, string), string> FieldPrecisions = new();
+        private static readonly ConcurrentDictionary<(Type, string), string> FieldPrecisions = new();
 
         /// <summary>
         /// Sets the DateTime format for a specific field in a type-safe manner.
@@ -47,20 +48,17 @@ namespace ClearHl7
             Expression<Func<TSegment, object>> property,
             string format)
         {
-            lock (_lock)
+            if (property.Body is MemberExpression member)
             {
-                if (property.Body is MemberExpression member)
-                {
-                    FieldPrecisions[(typeof(TSegment), member.Member.Name)] = format;
-                }
-                else if (property.Body is UnaryExpression unary && unary.Operand is MemberExpression unaryMember)
-                {
-                    FieldPrecisions[(typeof(TSegment), unaryMember.Member.Name)] = format;
-                }
-                else
-                {
-                    throw new ArgumentException("Expression is not a property", nameof(property));
-                }
+                FieldPrecisions[(typeof(TSegment), member.Member.Name)] = format;
+            }
+            else if (property.Body is UnaryExpression unary && unary.Operand is MemberExpression unaryMember)
+            {
+                FieldPrecisions[(typeof(TSegment), unaryMember.Member.Name)] = format;
+            }
+            else
+            {
+                throw new ArgumentException("Expression is not a property", nameof(property));
             }
         }
 
@@ -76,19 +74,17 @@ namespace ClearHl7
         /// <returns>The DateTime format string to use for this field.</returns>
         public static string GetFormatForField(Type segmentType, string propertyName, string originalFormat)
         {
-            lock (_lock)
-            {
-                // 1. Check for individual field override first
-                if (FieldPrecisions.TryGetValue((segmentType, propertyName), out var fieldFormat))
-                    return fieldFormat;
+            // 1. Check for individual field override first
+            if (FieldPrecisions.TryGetValue((segmentType, propertyName), out var fieldFormat))
+                return fieldFormat;
 
-                // 2. Check for global override
-                if (_globalDateTimeFormatOverride != null)
-                    return _globalDateTimeFormatOverride;
+            // 2. Check for global override
+            var globalOverride = GlobalDateTimeFormatOverride;
+            if (globalOverride != null)
+                return globalOverride;
 
-                // 3. Use original field precision (as defined in the original code)
-                return originalFormat;
-            }
+            // 3. Use original field precision (as defined in the original code)
+            return originalFormat;
         }
 
         /// <summary>
@@ -96,10 +92,7 @@ namespace ClearHl7
         /// </summary>
         public static void ClearFieldPrecisions()
         {
-            lock (_lock)
-            {
-                FieldPrecisions.Clear();
-            }
+            FieldPrecisions.Clear();
         }
 
         /// <summary>
@@ -120,10 +113,7 @@ namespace ClearHl7
         {
             get
             {
-                lock (_lock)
-                {
-                    return FieldPrecisions.Count;
-                }
+                return FieldPrecisions.Count;
             }
         }
 
