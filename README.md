@@ -374,6 +374,25 @@ The library ensures HL7-compliant timezone offsets in ±HHMM format (without col
 - IST: `+0530`
 - ACDT: `+1030`
 
+##### Helper Methods
+The `Hl7DateTimeFormatConfig` class provides three helper methods for working with timezone offsets:
+
+1. **`ToHl7OffsetString(TimeSpan offset)`** - Converts a TimeSpan to HL7's ±HHMM format (without colon)
+   ```csharp
+   var offsetString = Hl7DateTimeFormatConfig.ToHl7OffsetString(TimeSpan.FromHours(5));
+   // Returns: "+0500"
+   ```
+
+2. **`FormatDateTimeWithConfiguredOffset(DateTimeOffset dt)`** - Formats using the configured `TimezoneOffset` property
+   - Converts the DateTimeOffset to the configured timezone
+   - Returns HL7 format: `yyyyMMddHHmmss±HHMM`
+   - Uses the global `TimezoneOffset` configuration (defaults to UTC)
+
+3. **`FormatDateTimeUsingSourceOffset(DateTimeOffset dt)`** - Formats using the DateTimeOffset's own timezone
+   - Preserves the original timezone of the DateTimeOffset
+   - Returns HL7 format: `yyyyMMddHHmmss±HHMM`
+   - Useful when you want to keep the source timezone information
+
 **Note**: The configured `TimezoneOffset` is global and thread-safe. Set it once at application startup for consistent behavior throughout your application.
 
 For detailed documentation and advanced scenarios, see [DateTime Precision Configuration](DateTime-Precision-Configuration.md).
