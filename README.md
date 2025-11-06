@@ -301,18 +301,8 @@ Hl7DateTimeFormatConfig.GlobalDateTimeFormatOverride = Consts.DateTimeFormatPrec
 Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Consts.DateFormatPrecisionDay);
 Hl7DateTimeFormatConfig.SetPrecision<EvnSegment>(x => x.RecordedDateTime, Consts.DateTimeFormatPrecisionHour);
 
-// Configure field to use timezone offset format (use helper methods for actual formatting)
+// NEW: Configure field to use timezone offset format
 Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Consts.DateTimeFormatPrecisionSecondWithTimezoneOffset);
-
-// Format with timezone offset - default is UTC (+0000)
-var dt = new DateTime(2024, 3, 15, 14, 30, 45);
-var result1 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt);
-// Output: "20240315143045+0000"
-
-// Set custom timezone offset (e.g., +11:30)
-Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(11, 30, 0);
-var result2 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt);
-// Output: "20240316013045+1130" (converted to +11:30 timezone)
 
 // Clear overrides to revert to default behavior
 Hl7DateTimeFormatConfig.ClearGlobalOverride();

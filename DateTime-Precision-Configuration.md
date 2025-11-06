@@ -39,19 +39,9 @@ Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Const
 // Configure EVN.RecordedDateTime to use hour precision
 Hl7DateTimeFormatConfig.SetPrecision<EvnSegment>(x => x.RecordedDateTime, Consts.DateTimeFormatPrecisionHour);
 
-// Configure a field to use timezone offset format
-// Note: The constant is for documentation; actual formatting requires helper methods
+// NEW: Configure a field to use timezone offset format (yyyyMMddHHmmss±HHMM)
 Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Consts.DateTimeFormatPrecisionSecondWithTimezoneOffset);
-
-// Example output with default UTC timezone (TimezoneOffset not set):
-var mshSegment = new MshSegment(new DateTime(2024, 3, 15, 14, 30, 45), messageType, "MSG001", processingType);
-var result1 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(mshSegment.DateTimeOfMessage);
-// Output: "20240315143045+0000" (UTC)
-
-// Example output after setting TimezoneOffset to +11:30:
-Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(11, 30, 0);
-var result2 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(mshSegment.DateTimeOfMessage);
-// Output: "20240316013045+1130" (converted to +11:30)
+// This documents that the field should include timezone offset in HL7 format
 ```
 
 ### Available Precision Formats
