@@ -205,7 +205,7 @@ namespace ClearHl7.Tests.ConfigurationTests
         public void Constants_HaveCorrectValues()
         {
             // Assert
-            Assert.Equal("yyyyMMddHHmmss±HHMM", Hl7DateTimeFormatConfig.DateTimeFormatPrecisionSecondWithTimezoneOffset);
+            Assert.Equal("yyyyMMddHHmmss±HHMM", Consts.DateTimeFormatPrecisionSecondWithTimezoneOffset);
         }
 
         [Fact]

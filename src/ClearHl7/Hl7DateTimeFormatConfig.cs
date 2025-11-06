@@ -16,15 +16,6 @@ namespace ClearHl7
         private static TimeSpan _timezoneOffset = TimeSpan.Zero;
 
         /// <summary>
-        /// HL7 datetime format with second precision and timezone offset (yyyyMMddHHmmss±HHMM).
-        /// Note: The offset must be appended manually as HL7 requires ±HHMM format without colon,
-        /// while .NET's standard format strings (e.g., "zzz") produce "+HH:mm" with a colon.
-        /// Use FormatDateTimeWithConfiguredOffset or FormatDateTimeUsingSourceOffset helper methods
-        /// to format datetime values with HL7-compliant timezone offsets.
-        /// </summary>
-        public const string DateTimeFormatPrecisionSecondWithTimezoneOffset = "yyyyMMddHHmmss±HHMM";
-
-        /// <summary>
         /// Gets or sets the timezone offset to use when serializing DateTime/DateTimeOffset values with timezone information.
         /// Default is TimeSpan.Zero (UTC, represented as +0000 in HL7 format).
         /// Set to DateTimeOffset.Now.Offset to use the system's local timezone offset.
