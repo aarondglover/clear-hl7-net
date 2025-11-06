@@ -175,6 +175,18 @@ namespace ClearHl7
         }
 
         /// <summary>
+        /// Formats a DateTime using the configured TimezoneOffset.
+        /// The datetime is treated as UTC and converted to the configured timezone, then formatted as yyyyMMddHHmmss±HHMM.
+        /// </summary>
+        /// <param name="dt">The DateTime to format (treated as UTC).</param>
+        /// <returns>An HL7-formatted datetime string with the configured timezone offset.</returns>
+        public static string FormatDateTimeWithConfiguredOffset(DateTime dt)
+        {
+            var dateTimeOffset = new DateTimeOffset(dt, TimeSpan.Zero);
+            return FormatDateTimeWithConfiguredOffset(dateTimeOffset);
+        }
+
+        /// <summary>
         /// Formats a DateTimeOffset using the configured TimezoneOffset.
         /// The datetime is converted to the configured timezone and formatted as yyyyMMddHHmmss±HHMM.
         /// </summary>
@@ -186,6 +198,19 @@ namespace ClearHl7
             var convertedDt = dt.ToOffset(configuredOffset);
             var baseString = convertedDt.ToString(Consts.DateTimeFormatPrecisionSecond);
             var offsetString = ToHl7OffsetString(configuredOffset);
+            return baseString + offsetString;
+        }
+
+        /// <summary>
+        /// Formats a DateTime using the configured TimezoneOffset.
+        /// The datetime is treated as unspecified and the configured timezone offset is applied.
+        /// </summary>
+        /// <param name="dt">The DateTime to format.</param>
+        /// <returns>An HL7-formatted datetime string with the configured timezone offset.</returns>
+        public static string FormatDateTimeUsingSourceOffset(DateTime dt)
+        {
+            var baseString = dt.ToString(Consts.DateTimeFormatPrecisionSecond);
+            var offsetString = ToHl7OffsetString(TimezoneOffset);
             return baseString + offsetString;
         }
 

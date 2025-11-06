@@ -38,6 +38,20 @@ Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Const
 
 // Configure EVN.RecordedDateTime to use hour precision
 Hl7DateTimeFormatConfig.SetPrecision<EvnSegment>(x => x.RecordedDateTime, Consts.DateTimeFormatPrecisionHour);
+
+// Configure a field to use timezone offset format
+// Note: The constant is for documentation; actual formatting requires helper methods
+Hl7DateTimeFormatConfig.SetPrecision<MshSegment>(x => x.DateTimeOfMessage, Consts.DateTimeFormatPrecisionSecondWithTimezoneOffset);
+
+// Example output with default UTC timezone (TimezoneOffset not set):
+var mshSegment = new MshSegment(new DateTime(2024, 3, 15, 14, 30, 45), messageType, "MSG001", processingType);
+var result1 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(mshSegment.DateTimeOfMessage);
+// Output: "20240315143045+0000" (UTC)
+
+// Example output after setting TimezoneOffset to +11:30:
+Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(11, 30, 0);
+var result2 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(mshSegment.DateTimeOfMessage);
+// Output: "20240316013045+1130" (converted to +11:30)
 ```
 
 ### Available Precision Formats
@@ -184,7 +198,9 @@ public static class Hl7DateTimeFormatConfig
     
     // Timezone offset helper methods
     public static string ToHl7OffsetString(TimeSpan offset);
+    public static string FormatDateTimeWithConfiguredOffset(DateTime dt);
     public static string FormatDateTimeWithConfiguredOffset(DateTimeOffset dt);
+    public static string FormatDateTimeUsingSourceOffset(DateTime dt);
     public static string FormatDateTimeUsingSourceOffset(DateTimeOffset dt);
     
     // Clear configurations
@@ -279,35 +295,46 @@ var offset3 = Hl7DateTimeFormatConfig.ToHl7OffsetString(new TimeSpan(5, 30, 0));
 // Returns: "+0530"
 ```
 
-#### 2. FormatDateTimeWithConfiguredOffset(DateTimeOffset dt)
+#### 2. FormatDateTimeWithConfiguredOffset(DateTime/DateTimeOffset dt)
 
-Formats a DateTimeOffset using the configured `TimezoneOffset` property. The datetime is converted to the configured timezone before formatting.
+Formats a DateTime or DateTimeOffset using the configured `TimezoneOffset` property. The datetime is converted to the configured timezone before formatting.
 
 ```csharp
-// Set timezone to UTC (default)
+// With DateTime (treated as UTC)
+var dt1 = new DateTime(2024, 3, 15, 14, 30, 45);
 Hl7DateTimeFormatConfig.TimezoneOffset = TimeSpan.Zero;
+var result1 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt1);
+// Returns: "20240315143045+0000" (UTC)
 
-var dt = new DateTimeOffset(2024, 3, 15, 14, 30, 45, TimeSpan.FromHours(-5));
-var result = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt);
+// With DateTimeOffset
+var dt2 = new DateTimeOffset(2024, 3, 15, 14, 30, 45, TimeSpan.FromHours(-5));
+var result2 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt2);
 // Returns: "20240315193045+0000" (converted to UTC from EST)
 
 // Change to a different timezone
 Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(5, 30, 0);
-result = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt);
+result1 = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt1);
 // Returns: "20240315200045+0530" (converted to IST)
 ```
 
-#### 3. FormatDateTimeUsingSourceOffset(DateTimeOffset dt)
+#### 3. FormatDateTimeUsingSourceOffset(DateTime/DateTimeOffset dt)
 
-Formats a DateTimeOffset using its own timezone offset (preserves the source timezone).
+Formats a DateTime or DateTimeOffset using the configured timezone offset. For DateTimeOffset, it preserves the source timezone.
 
 ```csharp
-var dt = new DateTimeOffset(2024, 3, 15, 14, 30, 45, TimeSpan.FromHours(5));
-var result = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt);
+// With DateTime (uses configured offset)
+var dt1 = new DateTime(2024, 3, 15, 14, 30, 45);
+Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(5, 30, 0);
+var result1 = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt1);
+// Returns: "20240315143045+0530" (uses configured offset)
+
+// With DateTimeOffset (preserves source offset)
+var dt2 = new DateTimeOffset(2024, 3, 15, 14, 30, 45, TimeSpan.FromHours(5));
+var result2 = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt2);
 // Returns: "20240315143045+0500" (preserves the +05:00 offset)
 
-var dt2 = new DateTimeOffset(2024, 3, 15, 14, 30, 45, TimeSpan.FromHours(-5));
-result = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt2);
+var dt3 = new DateTimeOffset(2024, 3, 15, 14, 30, 45, TimeSpan.FromHours(-5));
+var result3 = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt3);
 // Returns: "20240315143045-0500" (preserves the -05:00 offset)
 ```
 

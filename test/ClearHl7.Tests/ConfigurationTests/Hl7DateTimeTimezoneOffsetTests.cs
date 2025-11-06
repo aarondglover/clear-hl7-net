@@ -251,5 +251,61 @@ namespace ClearHl7.Tests.ConfigurationTests
             // Assert
             Assert.Equal("-1200", result);
         }
+
+        [Fact]
+        public void FormatDateTimeWithConfiguredOffset_WithDateTime_DefaultUtc_ReturnsUtcTimestamp()
+        {
+            // Arrange
+            var dt = new DateTime(2024, 3, 15, 14, 30, 45);
+            Hl7DateTimeFormatConfig.TimezoneOffset = TimeSpan.Zero;
+
+            // Act
+            var result = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt);
+
+            // Assert - DateTime treated as UTC
+            Assert.Equal("20240315143045+0000", result);
+        }
+
+        [Fact]
+        public void FormatDateTimeWithConfiguredOffset_WithDateTime_CustomOffset_ReturnsConvertedTimestamp()
+        {
+            // Arrange
+            var dt = new DateTime(2024, 3, 15, 14, 30, 45);
+            Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(5, 30, 0);
+
+            // Act
+            var result = Hl7DateTimeFormatConfig.FormatDateTimeWithConfiguredOffset(dt);
+
+            // Assert - DateTime treated as UTC, converted to +0530
+            Assert.Equal("20240315200045+0530", result);
+        }
+
+        [Fact]
+        public void FormatDateTimeUsingSourceOffset_WithDateTime_UsesConfiguredOffset()
+        {
+            // Arrange
+            var dt = new DateTime(2024, 3, 15, 14, 30, 45);
+            Hl7DateTimeFormatConfig.TimezoneOffset = new TimeSpan(5, 30, 0);
+
+            // Act
+            var result = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt);
+
+            // Assert - Uses configured offset
+            Assert.Equal("20240315143045+0530", result);
+        }
+
+        [Fact]
+        public void FormatDateTimeUsingSourceOffset_WithDateTime_DefaultUtc()
+        {
+            // Arrange
+            var dt = new DateTime(2024, 3, 15, 14, 30, 45);
+            Hl7DateTimeFormatConfig.TimezoneOffset = TimeSpan.Zero;
+
+            // Act
+            var result = Hl7DateTimeFormatConfig.FormatDateTimeUsingSourceOffset(dt);
+
+            // Assert - Uses UTC offset
+            Assert.Equal("20240315143045+0000", result);
+        }
     }
 }
