@@ -12,6 +12,47 @@ namespace ClearHl7
     {
         private static readonly object _globalOverrideLock = new object();
         private static string _globalDateTimeFormatOverride = null;
+        private static readonly object _timezoneOffsetLock = new object();
+        private static TimeSpan _timezoneOffset = TimeSpan.Zero;
+
+        /// <summary>
+        /// Base format for datetime values (year to seconds) without timezone offset.
+        /// This format can be used as a building block for HL7 datetime strings.
+        /// </summary>
+        public const string DateTimeFormat_YearToSecondsBase = "yyyyMMddHHmmss";
+
+        /// <summary>
+        /// HL7 datetime format with timezone offset (yyyyMMddHHmmss±HHMM).
+        /// Note: The offset must be appended manually as HL7 requires ±HHMM format without colon,
+        /// while .NET's standard format strings (e.g., "zzz") produce "+HH:mm" with a colon.
+        /// Use FormatDateTimeWithConfiguredOffset or FormatDateTimeUsingSourceOffset helper methods
+        /// to format datetime values with HL7-compliant timezone offsets.
+        /// </summary>
+        public const string DateTimeFormat_YearToSecondsWithTimezoneOffset = "yyyyMMddHHmmss±HHMM";
+
+        /// <summary>
+        /// Gets or sets the timezone offset to use when serializing DateTime/DateTimeOffset values with timezone information.
+        /// Default is TimeSpan.Zero (UTC, represented as +0000 in HL7 format).
+        /// Set to DateTimeOffset.Now.Offset to use the system's local timezone offset.
+        /// Thread-safe.
+        /// </summary>
+        public static TimeSpan TimezoneOffset
+        {
+            get
+            {
+                lock (_timezoneOffsetLock)
+                {
+                    return _timezoneOffset;
+                }
+            }
+            set
+            {
+                lock (_timezoneOffsetLock)
+                {
+                    _timezoneOffset = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets the global DateTime format override for all DateTime fields.
@@ -132,6 +173,48 @@ namespace ClearHl7
                     return _globalDateTimeFormatOverride != null;
                 }
             }
+        }
+
+        /// <summary>
+        /// Converts a TimeSpan offset to HL7-compliant offset string format (±HHMM without colon).
+        /// </summary>
+        /// <param name="offset">The timezone offset to convert.</param>
+        /// <returns>A string in ±HHMM format, e.g., "+0000", "-0500", "+0530".</returns>
+        public static string ToHl7OffsetString(TimeSpan offset)
+        {
+            var sign = offset.TotalMinutes >= 0 ? "+" : "-";
+            var absoluteOffset = offset.Duration();
+            var hours = (int)absoluteOffset.TotalHours;
+            var minutes = absoluteOffset.Minutes;
+            return $"{sign}{hours:D2}{minutes:D2}";
+        }
+
+        /// <summary>
+        /// Formats a DateTimeOffset using the configured TimezoneOffset.
+        /// The datetime is converted to the configured timezone and formatted as yyyyMMddHHmmss±HHMM.
+        /// </summary>
+        /// <param name="dt">The DateTimeOffset to format.</param>
+        /// <returns>An HL7-formatted datetime string with the configured timezone offset.</returns>
+        public static string FormatDateTimeWithConfiguredOffset(DateTimeOffset dt)
+        {
+            var configuredOffset = TimezoneOffset;
+            var convertedDt = dt.ToOffset(configuredOffset);
+            var baseString = convertedDt.ToString(DateTimeFormat_YearToSecondsBase);
+            var offsetString = ToHl7OffsetString(configuredOffset);
+            return baseString + offsetString;
+        }
+
+        /// <summary>
+        /// Formats a DateTimeOffset using its own offset (preserves the source offset).
+        /// The datetime is formatted as yyyyMMddHHmmss±HHMM using dt.Offset.
+        /// </summary>
+        /// <param name="dt">The DateTimeOffset to format.</param>
+        /// <returns>An HL7-formatted datetime string with the source timezone offset.</returns>
+        public static string FormatDateTimeUsingSourceOffset(DateTimeOffset dt)
+        {
+            var baseString = dt.ToString(DateTimeFormat_YearToSecondsBase);
+            var offsetString = ToHl7OffsetString(dt.Offset);
+            return baseString + offsetString;
         }
     }
 }
