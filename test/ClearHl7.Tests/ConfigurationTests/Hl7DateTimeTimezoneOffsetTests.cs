@@ -42,6 +42,49 @@ namespace ClearHl7.Tests.ConfigurationTests
             Assert.Equal(newOffset, retrievedOffset);
         }
 
+        [Fact]
+        public void TimezoneOffset_SetValidEdgeCases_Succeeds()
+        {
+            // Test maximum positive offset boundary (UTC+14)
+            Hl7DateTimeFormatConfig.TimezoneOffset = TimeSpan.FromHours(14);
+            Assert.Equal(TimeSpan.FromHours(14), Hl7DateTimeFormatConfig.TimezoneOffset);
+
+            // Test maximum negative offset boundary (UTC-12)
+            Hl7DateTimeFormatConfig.TimezoneOffset = TimeSpan.FromHours(-12);
+            Assert.Equal(TimeSpan.FromHours(-12), Hl7DateTimeFormatConfig.TimezoneOffset);
+
+            // Test offset with fractional hours (e.g., India UTC+5:30)
+            var indiaOffset = new TimeSpan(5, 30, 0);
+            Hl7DateTimeFormatConfig.TimezoneOffset = indiaOffset;
+            Assert.Equal(indiaOffset, Hl7DateTimeFormatConfig.TimezoneOffset);
+
+            // Reset to default
+            Hl7DateTimeFormatConfig.TimezoneOffset = TimeSpan.Zero;
+        }
+
+        [Theory]
+        [InlineData(15, 0)]    // UTC+15 exceeds maximum
+        [InlineData(14, 1)]    // UTC+14:01 exceeds maximum
+        [InlineData(-13, 0)]   // UTC-13 exceeds minimum
+        [InlineData(-12, -1)]  // UTC-12:01 exceeds minimum
+        [InlineData(24, 0)]    // UTC+24 far exceeds maximum
+        [InlineData(100, 0)]   // UTC+100 extremely out of range
+        public void TimezoneOffset_SetInvalidValue_ThrowsArgumentOutOfRangeException(int hours, int minutes)
+        {
+            // Arrange
+            var invalidOffset = new TimeSpan(hours, minutes, 0);
+
+            // Act & Assert
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+                Hl7DateTimeFormatConfig.TimezoneOffset = invalidOffset);
+
+            Assert.Equal("value", exception.ParamName);
+            Assert.Contains("between -12:00 and +14:00", exception.Message);
+
+            // Ensure the property value hasn't changed
+            Assert.Equal(TimeSpan.Zero, Hl7DateTimeFormatConfig.TimezoneOffset);
+        }
+
         [Theory]
         [InlineData(0, 0, "+0000")]
         [InlineData(5, 0, "+0500")]
