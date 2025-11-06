@@ -16,19 +16,13 @@ namespace ClearHl7
         private static TimeSpan _timezoneOffset = TimeSpan.Zero;
 
         /// <summary>
-        /// Base format for datetime values (year to seconds) without timezone offset.
-        /// This format can be used as a building block for HL7 datetime strings.
-        /// </summary>
-        public const string DateTimeFormat_YearToSecondsBase = "yyyyMMddHHmmss";
-
-        /// <summary>
-        /// HL7 datetime format with timezone offset (yyyyMMddHHmmss±HHMM).
+        /// HL7 datetime format with second precision and timezone offset (yyyyMMddHHmmss±HHMM).
         /// Note: The offset must be appended manually as HL7 requires ±HHMM format without colon,
         /// while .NET's standard format strings (e.g., "zzz") produce "+HH:mm" with a colon.
         /// Use FormatDateTimeWithConfiguredOffset or FormatDateTimeUsingSourceOffset helper methods
         /// to format datetime values with HL7-compliant timezone offsets.
         /// </summary>
-        public const string DateTimeFormat_YearToSecondsWithTimezoneOffset = "yyyyMMddHHmmss±HHMM";
+        public const string DateTimeFormatPrecisionSecondWithTimezoneOffset = "yyyyMMddHHmmss±HHMM";
 
         /// <summary>
         /// Gets or sets the timezone offset to use when serializing DateTime/DateTimeOffset values with timezone information.
@@ -199,7 +193,7 @@ namespace ClearHl7
         {
             var configuredOffset = TimezoneOffset;
             var convertedDt = dt.ToOffset(configuredOffset);
-            var baseString = convertedDt.ToString(DateTimeFormat_YearToSecondsBase);
+            var baseString = convertedDt.ToString(Consts.DateTimeFormatPrecisionSecond);
             var offsetString = ToHl7OffsetString(configuredOffset);
             return baseString + offsetString;
         }
@@ -212,7 +206,7 @@ namespace ClearHl7
         /// <returns>An HL7-formatted datetime string with the source timezone offset.</returns>
         public static string FormatDateTimeUsingSourceOffset(DateTimeOffset dt)
         {
-            var baseString = dt.ToString(DateTimeFormat_YearToSecondsBase);
+            var baseString = dt.ToString(Consts.DateTimeFormatPrecisionSecond);
             var offsetString = ToHl7OffsetString(dt.Offset);
             return baseString + offsetString;
         }
