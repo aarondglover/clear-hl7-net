@@ -319,6 +319,7 @@ Hl7DateTimeFormatConfig.ClearFieldPrecisions();
 - `Consts.DateTimeFormatPrecisionHour` - Date and hour (yyyyMMddHH) - e.g., "2024031514"
 - `Consts.DateTimeFormatPrecisionMinute` - Date, hour, and minute (yyyyMMddHHmm) - e.g., "202403151430"
 - `Consts.DateTimeFormatPrecisionSecond` - Full precision (yyyyMMddHHmmss) - e.g., "20240315143045"
+- `Consts.DateTimeFormatPrecisionSecondWithTimezoneOffset` - Full precision with timezone offset (yyyyMMddHHmmss±HHMM) - e.g., "20240315143045+0530" (documentation constant; use helper methods below to format with HL7-compliant offsets)
 
 #### Timezone Offset Support
 clear-hl7-net provides deterministic timezone offset support for HL7 datetime values. By default, all datetime values with timezone offsets are serialized using UTC (+0000) to ensure consistent, deterministic behavior across different machines and CI environments.
