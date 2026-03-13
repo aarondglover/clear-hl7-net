@@ -38,7 +38,9 @@ namespace ClearHl7.Serialization
         public Exception Exception { get; set; }
         
         /// <summary>
-        /// Gets or sets the 1-based field index within the segment where the error occurred (e.g., 5 for OBX-5).
+        /// Gets or sets the 1-based index of the field within the segment that was blanked during
+        /// best-effort parsing (e.g., 5 means the fifth field after the segment ID, equivalent to
+        /// the 6th pipe-delimited token in the raw segment string).
         /// Null if the error is not field-specific.
         /// </summary>
         public int? FieldIndex { get; set; }

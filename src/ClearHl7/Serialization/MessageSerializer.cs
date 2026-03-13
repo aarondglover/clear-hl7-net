@@ -159,6 +159,7 @@ namespace ClearHl7.Serialization
                         // Retry with each field blanked one at a time, starting from field index 1
                         // (skipping the segment ID at index 0).  A fresh segment instance is used on
                         // each attempt to avoid polluted state from the failed first parse.
+                        string fieldSep = seps.FieldSeparator[0]; // same separator used for split/join
                         string[] fields = segmentString.Split(seps.FieldSeparator, StringSplitOptions.None);
                         bool recovered = false;
 
@@ -172,7 +173,7 @@ namespace ClearHl7.Serialization
                                 continue;
 
                             fields[fieldIdx] = string.Empty;
-                            string repairedSegmentString = string.Join(seps.FieldSeparator[0], fields);
+                            string repairedSegmentString = string.Join(fieldSep, fields);
 
                             // Create a fresh segment instance (same logic as above).
                             ISegment freshSeg = SegmentFactory.CreateSegment(id, version)
@@ -187,14 +188,14 @@ namespace ClearHl7.Serialization
                                 freshSeg.Ordinal = i;
                                 freshSeg.FromDelimitedString(repairedSegmentString, seps);
 
-                                // Field fieldIdx was successfully blanked — record the warning with
-                                // the 1-based field index and the original raw value.
+                                // Recovery succeeded: record a warning that identifies the blanked
+                                // field by its 1-based index and preserves the original raw value.
                                 options.AddWarning(new ParserWarning
                                 {
                                     Type = ParserWarningType.ParseError,
                                     SegmentId = id,
                                     LineNumber = i,
-                                    Message = $"Error parsing segment '{id}': field {fieldIdx} was blanked during best-effort parse",
+                                    Message = $"Segment '{id}' recovered via best-effort parse: field {fieldIdx} was blanked (original value preserved in {nameof(ParserWarning.RawFieldValue)})",
                                     RawSegment = segmentString,
                                     Exception = ex,
                                     FieldIndex = fieldIdx,
