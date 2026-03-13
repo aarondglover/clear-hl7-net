@@ -38,6 +38,18 @@ namespace ClearHl7.Serialization
         public Exception Exception { get; set; }
         
         /// <summary>
+        /// Gets or sets the 1-based field index within the segment where the error occurred (e.g., 5 for OBX-5).
+        /// Null if the error is not field-specific.
+        /// </summary>
+        public int? FieldIndex { get; set; }
+
+        /// <summary>
+        /// Gets or sets the raw string value of the field that caused the error, before it was blanked during best-effort parsing.
+        /// Null if not applicable.
+        /// </summary>
+        public string RawFieldValue { get; set; }
+
+        /// <summary>
         /// Gets or sets the timestamp when the warning was created.
         /// </summary>
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;

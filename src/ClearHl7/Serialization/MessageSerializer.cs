@@ -154,7 +154,79 @@ namespace ClearHl7.Serialization
                 }
                 catch (Exception ex)
                 {
-                    if (!HandleSegmentParseError(id, segmentString, i, options, ex))
+                    if (options.MalformedSegmentHandling == MalformedSegmentHandling.BestEffort)
+                    {
+                        // Retry with each field blanked one at a time, starting from field index 1
+                        // (skipping the segment ID at index 0).  A fresh segment instance is used on
+                        // each attempt to avoid polluted state from the failed first parse.
+                        string[] fields = segmentString.Split(seps.FieldSeparator, StringSplitOptions.None);
+                        bool recovered = false;
+
+                        for (int fieldIdx = 1; fieldIdx < fields.Length; fieldIdx++)
+                        {
+                            string originalValue = fields[fieldIdx];
+
+                            // An already-empty field cannot be the source of a non-empty bad value;
+                            // blanking it would produce an identical string and still fail.
+                            if (string.IsNullOrEmpty(originalValue))
+                                continue;
+
+                            fields[fieldIdx] = string.Empty;
+                            string repairedSegmentString = string.Join(seps.FieldSeparator[0], fields);
+
+                            // Create a fresh segment instance (same logic as above).
+                            ISegment freshSeg = SegmentFactory.CreateSegment(id, version)
+                                ?? (ISegment)messageClass.Assembly.CreateInstance(
+                                    $"{ messageClass.Namespace }.Segments.{ id.Substring(0, 1).ToUpper(culture) }{ id.Substring(1, 2).ToLower(culture) }Segment", false);
+
+                            if (freshSeg == null)
+                                break;
+
+                            try
+                            {
+                                freshSeg.Ordinal = i;
+                                freshSeg.FromDelimitedString(repairedSegmentString, seps);
+
+                                // Field fieldIdx was successfully blanked — record the warning with
+                                // the 1-based field index and the original raw value.
+                                options.AddWarning(new ParserWarning
+                                {
+                                    Type = ParserWarningType.ParseError,
+                                    SegmentId = id,
+                                    LineNumber = i,
+                                    Message = $"Error parsing segment '{id}': field {fieldIdx} was blanked during best-effort parse",
+                                    RawSegment = segmentString,
+                                    Exception = ex,
+                                    FieldIndex = fieldIdx,
+                                    RawFieldValue = originalValue
+                                });
+
+                                list.Add(freshSeg);
+                                recovered = true;
+                                break;
+                            }
+                            catch
+                            {
+                                // Restore and try the next field.
+                                fields[fieldIdx] = originalValue;
+                            }
+                        }
+
+                        if (!recovered)
+                        {
+                            // All fields tried and still failing — fall back to Skip behaviour.
+                            options.AddWarning(new ParserWarning
+                            {
+                                Type = ParserWarningType.ParseError,
+                                SegmentId = id,
+                                LineNumber = i,
+                                Message = $"Error parsing segment '{id}': {ex.Message}",
+                                RawSegment = segmentString,
+                                Exception = ex
+                            });
+                        }
+                    }
+                    else if (!HandleSegmentParseError(id, segmentString, i, options, ex))
                     {
                         throw; // Re-throw if options say to throw
                     }
@@ -300,8 +372,9 @@ namespace ClearHl7.Serialization
                         Message = $"Malformed segment - attempting best effort parse: {reason}",
                         RawSegment = segmentString
                     });
-                    // For BestEffort, we allow parsing to continue
-                    // The segment will be skipped if it's too short to parse
+                    // BestEffort behaves the same as Skip here because a segment shorter than
+                    // 3 characters has no identifiable segment ID or fields to retry with;
+                    // there is nothing useful to attempt a field-level recovery on.
                     return true; // Handled - continue parsing
 
                 default:
@@ -331,7 +404,6 @@ namespace ClearHl7.Serialization
                     return false; // Let caller re-throw exception
 
                 case MalformedSegmentHandling.Skip:
-                case MalformedSegmentHandling.BestEffort:
                     options.AddWarning(new ParserWarning
                     {
                         Type = ParserWarningType.ParseError,
