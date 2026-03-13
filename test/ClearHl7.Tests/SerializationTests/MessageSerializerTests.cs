@@ -546,6 +546,60 @@ namespace ClearHl7.Tests.SerializationTests
         }
 
         /// <summary>
+        /// Validates that BestEffort never stops after the first recovered field: a segment with
+        /// two bad fields produces two warnings (one per field, in order), and the recovered segment
+        /// has both bad fields nulled out while all good fields are fully preserved.
+        /// </summary>
+        [Fact]
+        public void DeserializeWithWarnings_BestEffort_CustomSegment_MultipleInvalidFields_ProducesOneWarningPerBadField()
+        {
+            SegmentFactory.RegisterSegment<ZtsSegment>("ZTS");
+            try
+            {
+                var options = new ParserOptions
+                {
+                    MalformedSegmentHandling = MalformedSegmentHandling.BestEffort,
+                    CollectWarnings = true
+                };
+
+                // Both field 2 and field 3 contain "BADFIELD".  The null-boundary technique
+                // identifies field 2 first (it is null in the partial segment after the initial
+                // failure), blanks it, then the next retry fails at field 3 which is identified
+                // the same way.  A third retry with both fields blank succeeds.
+                string delimitedString =
+                    $"MSH|^~\\&|Sender||Receiver||20201202144539|||||2.9{Consts.LineTerminator}" +
+                    $"ZTS|GoodField1|BADFIELD|BADFIELD|GoodField4{Consts.LineTerminator}";
+
+                ParseResult<Message> result = MessageSerializer.DeserializeWithWarnings<Message>(delimitedString, options);
+
+                // MSH + recovered ZTS should both be present.
+                result.Message.Segments.Should().HaveCount(2);
+                result.HasWarnings.Should().BeTrue();
+                result.Warnings.Should().HaveCount(2, "one warning per bad field");
+
+                // Both warnings must exist with correct field index and raw value.
+                // Order is not asserted because the underlying ConcurrentBag has LIFO
+                // enumeration order, but all per-field data must be correct.
+                result.Warnings.Should().ContainSingle(w => w.FieldIndex == 2 && w.RawFieldValue == "BADFIELD",
+                    "field 2 was the first null boundary");
+                result.Warnings.Should().ContainSingle(w => w.FieldIndex == 3 && w.RawFieldValue == "BADFIELD",
+                    "field 3 was revealed as the next null boundary after field 2 was blanked");
+                result.Warnings.Should().AllSatisfy(w => w.SegmentId.Should().Be("ZTS"));
+
+                // The recovered segment: bad fields are null, good fields are preserved.
+                ZtsSegment recovered = result.Message.Segments.ElementAt(1).Should().BeOfType<ZtsSegment>().Subject;
+                recovered.Field1.Should().Be("GoodField1");
+                recovered.Field2.Should().BeNull();
+                recovered.Field3.Should().BeNull();
+                recovered.Field4.Should().Be("GoodField4");
+            }
+            finally
+            {
+                SegmentFactory.ClearRegistrations();
+            }
+        }
+
+        /// <summary>
         /// Validates BestEffort behaviour against the real IN2 segment (V2.9): when field 72
         /// (PatientsRelationshipToInsured) is present but empty, the library throws because the
         /// field guard is missing.  BestEffort correctly tries to blank each non-empty field but
@@ -618,7 +672,8 @@ namespace ClearHl7.Tests.SerializationTests
 
         /// <summary>
         /// A controllable custom segment used to exercise the BestEffort retry loop.
-        /// FromDelimitedString throws when field 2 contains the sentinel value "BADFIELD".
+        /// FromDelimitedString throws when field 2 or field 3 contains the sentinel value "BADFIELD",
+        /// with distinct messages per field so the null-boundary O(1) detection can be verified.
         /// </summary>
         private sealed class ZtsSegment : ISegment
         {
@@ -627,6 +682,7 @@ namespace ClearHl7.Tests.SerializationTests
             public string Field1 { get; set; }
             public string Field2 { get; set; }
             public string Field3 { get; set; }
+            public string Field4 { get; set; }
 
             public void FromDelimitedString(string delimitedString) =>
                 FromDelimitedString(delimitedString, null);
@@ -647,11 +703,16 @@ namespace ClearHl7.Tests.SerializationTests
                     throw new ArgumentException("Field 2 contains an invalid value.", nameof(delimitedString));
 
                 Field2 = segments.Length > 2 && segments[2].Length > 0 ? segments[2] : null;
+
+                if (segments.Length > 3 && segments[3] == "BADFIELD")
+                    throw new ArgumentException("Field 3 contains an invalid value.", nameof(delimitedString));
+
                 Field3 = segments.Length > 3 && segments[3].Length > 0 ? segments[3] : null;
+                Field4 = segments.Length > 4 && segments[4].Length > 0 ? segments[4] : null;
             }
 
             public string ToDelimitedString() =>
-                string.Join(Configuration.FieldSeparator, Id, Field1, Field2, Field3);
+                string.Join(Configuration.FieldSeparator, Id, Field1, Field2, Field3, Field4);
         }
 
         /// <summary>

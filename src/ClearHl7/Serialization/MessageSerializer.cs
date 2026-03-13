@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using ClearHl7.Helpers;
 
 namespace ClearHl7.Serialization
@@ -144,11 +146,13 @@ namespace ClearHl7.Serialization
                     continue; // Skip to next segment
                 }
 
-                // Init segment properties, and add to collection
+                // Init segment properties, and add to collection.
+                // Declare seg before the try block so the catch can inspect its partially-populated
+                // state for BestEffort null-boundary detection.
+                ISegment seg = (ISegment)segment;
+                seg.Ordinal = i;
                 try
                 {
-                    ISegment seg = (ISegment)segment;
-                    seg.Ordinal = i;
                     seg.FromDelimitedString(segmentString, seps);
                     list.Add(seg);
                 }
@@ -156,51 +160,67 @@ namespace ClearHl7.Serialization
                 {
                     if (options.MalformedSegmentHandling == MalformedSegmentHandling.BestEffort)
                     {
-                        // Retry with each field blanked one at a time, starting from field index 1
-                        // (skipping the segment ID at index 0).  A fresh segment instance is used on
-                        // each attempt to avoid polluted state from the failed first parse.
-                        char fieldSep = seps.FieldSeparator[0]; // same separator used for split/join
+                        // BestEffort field-level recovery.
+                        //
+                        // Because FromDelimitedString assigns fields strictly in order, the
+                        // partially-populated `seg` instance is a precise record of where parsing
+                        // stopped: the bad field is the first position where fields[] contains a
+                        // non-empty value but the corresponding property in `seg` is still null
+                        // (the "null boundary").  We jump directly to that field and blank it —
+                        // O(1) per bad field rather than a full linear scan.
+                        //
+                        // After blanking the bad field we retry from scratch with a fresh instance.
+                        // If the retry succeeds we are done; if it fails the new partial instance
+                        // exposes the next null boundary.  The loop continues until the segment
+                        // parses completely or no boundary can be found (e.g. the bad field is
+                        // already empty in the raw segment).
+                        //
+                        // Five independently bad fields → five warnings, one per blanked field.
+                        // If the segment cannot be fully recovered, a single fallback warning is
+                        // emitted (no FieldIndex/RawFieldValue) and the segment is dropped, which
+                        // is identical to Skip behaviour.
+                        string fieldSep = seps.FieldSeparator[0];
                         string[] fields = segmentString.Split(seps.FieldSeparator, StringSplitOptions.None);
                         bool recovered = false;
+                        ISegment currentPartialSeg = seg;
+                        var pendingWarnings = new List<(int FieldIndex, string RawFieldValue)>();
 
-                        for (int fieldIdx = 1; fieldIdx < fields.Length; fieldIdx++)
+                        while (true)
                         {
-                            string originalValue = fields[fieldIdx];
+                            int badFieldIdx = FindNullBoundaryFieldIndex(currentPartialSeg, fields);
+                            if (badFieldIdx == -1)
+                                break; // No null boundary found — cannot make further progress.
 
-                            // An already-empty field cannot be the source of a non-empty bad value;
-                            // blanking it would produce an identical string and still fail.
-                            if (string.IsNullOrEmpty(originalValue))
-                                continue;
+                            string originalValue = fields[badFieldIdx];
+                            fields[badFieldIdx] = string.Empty;
+                            string repairedString = string.Join(fieldSep, fields);
 
-                            fields[fieldIdx] = string.Empty;
-                            string repairedSegmentString = string.Join(fieldSep, fields);
-
-                            // Create a fresh segment instance based on the type of the original segment.
-                            ISegment freshSeg = (ISegment)Activator.CreateInstance(seg.GetType());
-
+                            ISegment freshSeg = (ISegment)Activator.CreateInstance(segment.GetType());
                             if (freshSeg == null)
                                 break;
 
-
+                            freshSeg.Ordinal = i;
 
                             try
                             {
-                                freshSeg.Ordinal = i;
-                                freshSeg.FromDelimitedString(repairedSegmentString, seps);
+                                freshSeg.FromDelimitedString(repairedString, seps);
 
-                                // Recovery succeeded: record a warning that identifies the blanked
-                                // field by its 1-based index and preserves the original raw value.
-                                options.AddWarning(new ParserWarning
+                                // Full recovery: emit one warning per blanked field then add segment.
+                                pendingWarnings.Add((badFieldIdx, originalValue));
+                                foreach (var (warnFieldIdx, warnRawValue) in pendingWarnings)
                                 {
-                                    Type = ParserWarningType.ParseError,
-                                    SegmentId = id,
-                                    LineNumber = i,
-                                    Message = $"Segment '{id}' recovered via best-effort parse: field {fieldIdx} was blanked (original value preserved in {nameof(ParserWarning.RawFieldValue)})",
-                                    RawSegment = segmentString,
-                                    Exception = ex,
-                                    FieldIndex = fieldIdx,
-                                    RawFieldValue = originalValue
-                                });
+                                    options.AddWarning(new ParserWarning
+                                    {
+                                        Type = ParserWarningType.ParseError,
+                                        SegmentId = id,
+                                        LineNumber = i,
+                                        Message = $"Segment '{id}' recovered via best-effort parse: field {warnFieldIdx} was blanked (original value preserved in {nameof(ParserWarning.RawFieldValue)})",
+                                        RawSegment = segmentString,
+                                        Exception = ex,
+                                        FieldIndex = warnFieldIdx,
+                                        RawFieldValue = warnRawValue
+                                    });
+                                }
 
                                 list.Add(freshSeg);
                                 recovered = true;
@@ -208,14 +228,16 @@ namespace ClearHl7.Serialization
                             }
                             catch
                             {
-                                // Restore and try the next field.
-                                fields[fieldIdx] = originalValue;
+                                // Blanking this field revealed another bad field further along.
+                                // Keep it blank, record it as pending, and locate the next boundary.
+                                pendingWarnings.Add((badFieldIdx, originalValue));
+                                currentPartialSeg = freshSeg;
                             }
                         }
 
                         if (!recovered)
                         {
-                            // All fields tried and still failing — fall back to Skip behaviour.
+                            // Full recovery was not possible — fall back to Skip behaviour.
                             options.AddWarning(new ParserWarning
                             {
                                 Type = ParserWarningType.ParseError,
@@ -381,6 +403,52 @@ namespace ClearHl7.Serialization
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Identifies the 1-based index of the first bad field in a partially-parsed segment
+        /// using the "null boundary" technique.  Because <see cref="ISegment.FromDelimitedString"/>
+        /// processes fields sequentially, the number of non-null data properties in
+        /// <paramref name="partialSeg"/> equals the number of non-empty fields that were
+        /// successfully parsed before the exception was thrown.  The bad field is therefore
+        /// the next (i.e. the <c>parsedCount + 1</c>th) non-empty field in
+        /// <paramref name="fields"/>.
+        /// </summary>
+        /// <param name="partialSeg">A segment instance in a partially-populated state from a failed parse.</param>
+        /// <param name="fields">The raw field values split from the original segment string.</param>
+        /// <returns>The 1-based field index of the bad field, or -1 if no boundary can be found.</returns>
+        private static int FindNullBoundaryFieldIndex(ISegment partialSeg, string[] fields)
+        {
+            // Count non-null nullable/reference-type data properties.  Non-nullable value types
+            // (e.g. int, bool) default to 0/false which box to a non-null object, making them
+            // unreliable as "was this field reached?" indicators, so they are excluded.
+            int parsedCount = partialSeg.GetType()
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(p => p.Name != nameof(ISegment.Id) && p.Name != nameof(ISegment.Ordinal))
+                .Where(p => !p.PropertyType.IsValueType || Nullable.GetUnderlyingType(p.PropertyType) != null)
+                .Count(p =>
+                {
+                    // Broad catch is intentional: property access for a heuristic count must
+                    // never surface unexpected reflection exceptions to the caller.  Any error
+                    // (e.g. a lazy IEnumerable whose getter throws on first access) is treated
+                    // conservatively as "was assigned" so the bad-field index is not under-counted.
+                    try { return p.GetValue(partialSeg) != null; }
+                    catch { return true; }
+                });
+
+            // The bad field is the (parsedCount + 1)-th non-empty field in the raw segment.
+            // Empty raw fields result in null via the segment's Length > 0 guard and are not
+            // counted among the successfully-parsed fields, so they are skipped here too.
+            int nonEmptyFieldsEncountered = 0;
+            for (int fieldIdx = 1; fieldIdx < fields.Length; fieldIdx++)
+            {
+                if (string.IsNullOrEmpty(fields[fieldIdx])) continue;
+                nonEmptyFieldsEncountered++;
+                if (nonEmptyFieldsEncountered == parsedCount + 1)
+                    return fieldIdx;
+            }
+
+            return -1; // No null boundary found (e.g. bad field is already empty in raw segment).
         }
 
         /// <summary>
