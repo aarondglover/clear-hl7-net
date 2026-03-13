@@ -9,6 +9,7 @@ using Xunit;
 
 namespace ClearHl7.Tests.SerializationTests
 {
+    [Collection("SegmentFactoryNonParallelCollection")]
     public class MessageSerializerTests
     {
         /// <summary>

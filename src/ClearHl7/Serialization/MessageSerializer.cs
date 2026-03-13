@@ -159,7 +159,7 @@ namespace ClearHl7.Serialization
                         // Retry with each field blanked one at a time, starting from field index 1
                         // (skipping the segment ID at index 0).  A fresh segment instance is used on
                         // each attempt to avoid polluted state from the failed first parse.
-                        string fieldSep = seps.FieldSeparator[0]; // same separator used for split/join
+                        char fieldSep = seps.FieldSeparator[0]; // same separator used for split/join
                         string[] fields = segmentString.Split(seps.FieldSeparator, StringSplitOptions.None);
                         bool recovered = false;
 
@@ -175,13 +175,13 @@ namespace ClearHl7.Serialization
                             fields[fieldIdx] = string.Empty;
                             string repairedSegmentString = string.Join(fieldSep, fields);
 
-                            // Create a fresh segment instance (same logic as above).
-                            ISegment freshSeg = SegmentFactory.CreateSegment(id, version)
-                                ?? (ISegment)messageClass.Assembly.CreateInstance(
-                                    $"{ messageClass.Namespace }.Segments.{ id.Substring(0, 1).ToUpper(culture) }{ id.Substring(1, 2).ToLower(culture) }Segment", false);
+                            // Create a fresh segment instance based on the type of the original segment.
+                            ISegment freshSeg = (ISegment)Activator.CreateInstance(seg.GetType());
 
                             if (freshSeg == null)
                                 break;
+
+
 
                             try
                             {
