@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using ClearHl7.Serialization;
 
 namespace ClearHl7.Extensions
 {
@@ -125,5 +130,22 @@ namespace ClearHl7.Extensions
 
             return message.Segments.Where(s => s != null).OrderBy(s => s.Ordinal);
         }
+
+        /// <summary>
+        /// Asynchronously serializes this message and writes the result to <paramref name="destination"/>.
+        /// This is a convenience wrapper around <see cref="MessageSerializer.SerializeAsync"/>.
+        /// </summary>
+        /// <param name="message">The message to serialize.</param>
+        /// <param name="destination">The stream to write to.</param>
+        /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if null.</param>
+        /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+        /// <returns>A task that represents the asynchronous write operation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when message or destination is null.</exception>
+        public static Task SerializeToAsync(
+            this IMessage message,
+            Stream destination,
+            Encoding encoding = null,
+            CancellationToken cancellationToken = default)
+            => MessageSerializer.SerializeAsync(message, destination, encoding, cancellationToken);
     }
 }
