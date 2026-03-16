@@ -187,6 +187,20 @@ namespace ClearHl7.Tests.SerializationTests
         }
 
         /// <summary>
+        /// Validates that Deserialize() resolves built-in segment types when segment IDs use mixed casing.
+        /// </summary>
+        [Fact]
+        public void Deserialize_WithMixedCaseSegmentIds_ReturnsCorrectSegmentTypes()
+        {
+            string delimitedString = $"MSH|^~\\&|Sender 1||Receiver 1||20201202144539|||||2.9{ Consts.LineTerminator }in1|15|MNO Healthcare|736HB^^^DES1&UID654&Type 5~AA876^^^LLL098&UID123&Type 7{ Consts.LineTerminator }cDm||Code 1^ABC~Code 2^ZYX{ Consts.LineTerminator }";
+            Message actual = MessageSerializer.Deserialize<Message>(delimitedString);
+
+            actual.Segments.ElementAt(0).Should().BeOfType<MshSegment>();
+            actual.Segments.ElementAt(1).Should().BeOfType<In1Segment>();
+            actual.Segments.ElementAt(2).Should().BeOfType<CdmSegment>();
+        }
+
+        /// <summary>
         /// Validates that Deserialize() throws an ArgumentNullException when a null input is provided.
         /// </summary>
         [Fact]

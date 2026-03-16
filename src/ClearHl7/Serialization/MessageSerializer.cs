@@ -12,6 +12,8 @@ namespace ClearHl7.Serialization
     /// </summary>
     public static class MessageSerializer
     {
+        private static readonly char[] LineTerminatorCharArray = new[] { Consts.LineTerminator };
+
         /// <summary>
         /// Parses the text representing a single Message value into an instance of the appropriate type based upon the HL7 version provided in delimitedString.
         /// </summary>
@@ -80,7 +82,7 @@ namespace ClearHl7.Serialization
             CultureInfo culture = CultureInfo.CurrentCulture;
             string[] segments = delimitedString == null
                 ? Array.Empty<string>()
-                : delimitedString.Split(new char[] { Consts.LineTerminator }, StringSplitOptions.RemoveEmptyEntries);
+                : delimitedString.Split(LineTerminatorCharArray, StringSplitOptions.RemoveEmptyEntries);
             List<ISegment> list = new();
             Type messageClass = item.GetType();
 
@@ -133,7 +135,8 @@ namespace ClearHl7.Serialization
                 else
                 {
                     // Fall back to reflection for built-in segments
-                    segment = messageClass.Assembly.CreateInstance($"{ messageClass.Namespace }.Segments.{ id.Substring(0, 1).ToUpper(culture) }{ id.Substring(1, 2).ToLower(culture) }Segment", false);
+                    string segmentClassName = $"{char.ToUpper(id[0], culture)}{char.ToLower(id[1], culture)}{char.ToLower(id[2], culture)}";
+                    segment = messageClass.Assembly.CreateInstance($"{ messageClass.Namespace }.Segments.{ segmentClassName }Segment", false);
                 }
 
                 if (segment == null)
