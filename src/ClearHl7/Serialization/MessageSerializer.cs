@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using ClearHl7.Helpers;
 
 namespace ClearHl7.Serialization
@@ -278,6 +282,94 @@ namespace ClearHl7.Serialization
             }
 
             return message.ToDelimitedString();
+        }
+
+        /// <summary>
+        /// Asynchronously writes the HL7 representation of a Message to a stream.
+        /// </summary>
+        /// <param name="message">The Message to serialize.</param>
+        /// <param name="destination">The stream to write to.</param>
+        /// <param name="encoding">The character encoding to use. Defaults to <see cref="Encoding.UTF8"/> if null.</param>
+        /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+        /// <returns>A task that represents the asynchronous write operation.</returns>
+        /// <exception cref="ArgumentNullException">message is null. -or- destination is null.</exception>
+        public static async Task SerializeAsync(
+            IMessage message,
+            Stream destination,
+            Encoding encoding = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (message == null)
+                throw new ArgumentNullException(nameof(message), $"{ nameof(message) } is null.");
+            if (destination == null)
+                throw new ArgumentNullException(nameof(destination), $"{ nameof(destination) } is null.");
+
+            encoding ??= new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+            string content = message.ToDelimitedString();
+
+#if NETSTANDARD2_1_OR_GREATER
+            await using var writer = new StreamWriter(destination, encoding, bufferSize: -1, leaveOpen: true);
+            await writer.WriteAsync(content.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await writer.FlushAsync().ConfigureAwait(false);
+#else
+            using var writer = new StreamWriter(destination, encoding, bufferSize: -1, leaveOpen: true);
+            await writer.WriteAsync(content).ConfigureAwait(false);
+            await writer.FlushAsync().ConfigureAwait(false);
+#endif
+        }
+
+        /// <summary>
+        /// Asynchronously reads an HL7 message from a stream and deserializes it into an instance of the
+        /// appropriate Message type based on the HL7 version found in the MSH segment.
+        /// </summary>
+        /// <param name="source">The stream to read from.</param>
+        /// <param name="encoding">The character encoding to use. Defaults to <see cref="Encoding.UTF8"/> if null.</param>
+        /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+        /// <returns>A task that resolves to an <see cref="IMessage"/> instance.</returns>
+        /// <exception cref="ArgumentNullException">source is null.</exception>
+        /// <exception cref="ArgumentException">Unable to determine the HL7 version, or the message is malformed.</exception>
+        public static async Task<IMessage> DeserializeAsync(
+            Stream source,
+            Encoding encoding = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source), $"{ nameof(source) } is null.");
+
+            encoding ??= Encoding.UTF8;
+
+            using var reader = new StreamReader(source, encoding, detectEncodingFromByteOrderMarks: true, bufferSize: -1, leaveOpen: true);
+            string content = await reader.ReadToEndAsync().ConfigureAwait(false);
+
+            return Deserialize(content);
+        }
+
+        /// <summary>
+        /// Asynchronously reads an HL7 message from a stream and deserializes it into an instance of a specified type.
+        /// </summary>
+        /// <typeparam name="T">The target Message type.</typeparam>
+        /// <param name="source">The stream to read from.</param>
+        /// <param name="encoding">The character encoding to use. Defaults to <see cref="Encoding.UTF8"/> if null.</param>
+        /// <param name="options">Optional parser options. If null, uses global defaults from <see cref="ParserConfiguration"/>.</param>
+        /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+        /// <returns>A task that resolves to an instance of type <typeparamref name="T"/>.</returns>
+        /// <exception cref="ArgumentNullException">source is null.</exception>
+        /// <exception cref="ArgumentException">The message is malformed or the MSH segment is missing/invalid.</exception>
+        public static async Task<T> DeserializeAsync<T>(
+            Stream source,
+            Encoding encoding = null,
+            ParserOptions options = null,
+            CancellationToken cancellationToken = default) where T : class, IMessage
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source), $"{ nameof(source) } is null.");
+
+            encoding ??= Encoding.UTF8;
+
+            using var reader = new StreamReader(source, encoding, detectEncodingFromByteOrderMarks: true, bufferSize: -1, leaveOpen: true);
+            string content = await reader.ReadToEndAsync().ConfigureAwait(false);
+
+            return Deserialize<T>(content, options);
         }
 
         /// <summary>
