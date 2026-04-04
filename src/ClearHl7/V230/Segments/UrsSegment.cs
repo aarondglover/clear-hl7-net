@@ -94,9 +94,7 @@ namespace ClearHl7.V230.Segments
         public void FromDelimitedString(string delimitedString, Separators separators)
         {
             Separators seps = separators ?? new Separators().UsingConfigurationValues();
-            string[] segments = delimitedString == null
-                ? Array.Empty<string>()
-                : delimitedString.Split(seps.FieldSeparator, StringSplitOptions.None);
+            string[] segments = FieldIndexer.SplitFields(delimitedString, seps.FieldSeparator);
 
             if (segments.Length > 0)
             {

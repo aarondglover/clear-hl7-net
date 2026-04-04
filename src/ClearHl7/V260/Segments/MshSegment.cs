@@ -199,9 +199,7 @@ namespace ClearHl7.V260.Segments
                 FieldSeparator = delimitedString[3].ToString();
             }
 
-            string[] segments = delimitedString == null
-                ? Array.Empty<string>()
-                : delimitedString.Split(new[] { FieldSeparator }, StringSplitOptions.None);
+            string[] segments = FieldIndexer.SplitFields(delimitedString, FieldSeparator);
 
             if (segments.Length > 0)
             {

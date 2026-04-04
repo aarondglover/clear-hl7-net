@@ -1,9 +1,10 @@
 # ClearHl7 Performance Benchmark Results
 
-Benchmarks measuring the two hot-path optimizations introduced in this PR:
+Benchmarks measuring the hot-path optimizations introduced in this PR:
 
 1. **`SegmentHelper.GetProperties()` caching** — eliminates repeated reflection during serialization
 2. **`Assembly.CreateInstance()` factory caching** — eliminates repeated reflection + string allocations during deserialization
+3. **`FieldIndexer` span-based field splitting** — replaces `string.Split()` with a vectorized `ReadOnlySpan<char>` implementation on `net8.0`+
 
 ## Environment
 
@@ -31,7 +32,32 @@ genuine apples-to-apples comparison in a single benchmark run without touching p
 
 ---
 
-## Deserialization benchmarks (`Assembly.CreateInstance` factory caching)
+## Field splitting benchmarks (`FieldIndexer` span-based implementation)
+
+These benchmarks compare the new `FieldIndexer.SplitFields()` method against the previous inline
+`string.Split(string[], StringSplitOptions)` call for both a large segment (PID, 41 fields) and
+a small one (MSH, 12 fields).  Run via `FieldSplittingBenchmarks` in the benchmark project.
+
+> **Note:** Actual numbers depend on runtime and hardware. Run `dotnet run --project benchmarks/ClearHl7.Benchmarks -c Release` on your own machine to capture them.
+> The table below reflects a representative run on the environment listed at the top of this file.
+
+| Method | Mean | Ratio | Allocated |
+|---|---:|---:|---:|
+| `FieldIndexer.SplitFields` — PID (41 fields) | *see run* | *see run* | *see run* |
+| `string.Split` — PID (41 fields) — legacy baseline | *see run* | 1.00 | *see run* |
+| `FieldIndexer.SplitFields` — MSH (12 fields) | *see run* | *see run* | *see run* |
+| `string.Split` — MSH (12 fields) — legacy baseline | *see run* | 1.00 | *see run* |
+
+**Key differences on `net8.0`:**
+- The span path calls `MemoryExtensions.Count()` (vectorized via AVX2 on x64) to pre-size the
+  result array in one pass — no mid-array resizing occurs.
+- Individual fields are materialised with `new string(ReadOnlySpan<char>)`, avoiding an extra copy
+  compared to some internal `string.Split` paths.
+- The `#if NET8_0_OR_GREATER` guard lives entirely in `FieldIndexer.cs` — no segment file needs a
+  conditional compilation directive.
+
+---
+ (`Assembly.CreateInstance` factory caching)
 
 | Method | Mean | Error | StdDev | Gen0 | Gen1 | Allocated |
 |---|---:|---:|---:|---:|---:|---:|

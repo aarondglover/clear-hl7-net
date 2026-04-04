@@ -30,6 +30,7 @@ Upgrading from Version 1.x to Version 2? Please read some important notes about 
 ### Targets
 * .NET Standard 2.0
 * .NET Standard 2.1
+* .NET 8.0
 
 ## Supported HL7 Versions
 Several versions exist for the HL7 Version 2.x messaging standard.  clear-hl7-net supports the following:
