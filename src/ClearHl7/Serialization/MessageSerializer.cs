@@ -18,6 +18,12 @@ namespace ClearHl7.Serialization
         private static readonly ConcurrentDictionary<string, Func<object>> _segmentFactoryCache = new ConcurrentDictionary<string, Func<object>>();
 
         /// <summary>
+        /// When true, bypasses the segment factory cache and performs raw reflection on every call.
+        /// Intended for benchmark comparison only; do not set this in production code.
+        /// </summary>
+        internal static bool DisableCaches { get; set; } = false;
+
+        /// <summary>
         /// Parses the text representing a single Message value into an instance of the appropriate type based upon the HL7 version provided in delimitedString.
         /// </summary>
         /// <param name="delimitedString">A string representation that will be deserialized into the object instance.</param>
@@ -296,6 +302,12 @@ namespace ClearHl7.Serialization
         /// <returns>A new instance of the segment type, or null if the type is not found.</returns>
         private static object CreateCachedSegmentInstance(Assembly assembly, string typeName)
         {
+            if (DisableCaches)
+            {
+                Type type = assembly.GetType(typeName);
+                return type != null ? Activator.CreateInstance(type) : null;
+            }
+
             Func<object> factory = _segmentFactoryCache.GetOrAdd(typeName, tn =>
             {
                 Type type = assembly.GetType(tn);

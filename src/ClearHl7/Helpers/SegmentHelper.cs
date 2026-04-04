@@ -15,6 +15,12 @@ namespace ClearHl7.Helpers
         private static readonly ConcurrentDictionary<Type, PropertyInfo> _isSubcomponentPropertyCache = new ConcurrentDictionary<Type, PropertyInfo>();
 
         /// <summary>
+        /// When true, bypasses the reflection caches and performs raw reflection on every call.
+        /// Intended for benchmark comparison only; do not set this in production code.
+        /// </summary>
+        internal static bool DisableCaches { get; set; } = false;
+
+        /// <summary>
         /// Sets the IsSubcomponent property for any HL7 objects that are nested at the subcomponent level.
         /// </summary>
         /// <param name="segment">The Segment to traverse.</param>
@@ -42,11 +48,15 @@ namespace ClearHl7.Helpers
             }
 
             Type objectType = obj.GetType();
-            PropertyInfo[] objectProperties = _propertiesCache.GetOrAdd(objectType, t => t.GetProperties());
+            PropertyInfo[] objectProperties = DisableCaches
+                ? objectType.GetProperties()
+                : _propertiesCache.GetOrAdd(objectType, t => t.GetProperties());
 
             if (nestingLevel > 1)
             {
-                PropertyInfo isSubcomponentProperty = _isSubcomponentPropertyCache.GetOrAdd(objectType, t => t.GetProperty("IsSubcomponent", BindingFlags.Public | BindingFlags.Instance));
+                PropertyInfo isSubcomponentProperty = DisableCaches
+                    ? objectType.GetProperty("IsSubcomponent", BindingFlags.Public | BindingFlags.Instance)
+                    : _isSubcomponentPropertyCache.GetOrAdd(objectType, t => t.GetProperty("IsSubcomponent", BindingFlags.Public | BindingFlags.Instance));
                 isSubcomponentProperty?.SetValue(obj, true, null);
 
                 // At the deepest level, so no need to continue searching for deeper levels within the current object.
