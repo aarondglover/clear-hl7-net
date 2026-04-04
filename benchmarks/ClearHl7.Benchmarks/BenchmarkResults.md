@@ -73,6 +73,25 @@ a small one (MSH, 12 fields).  Run via `FieldSplittingBenchmarks` in the benchma
 
 ---
 
+## Deserialization attribution benchmarks (span vs factory cache, isolated)
+
+These benchmarks use `FieldIndexer.DisableCaches` and `MessageSerializer.DisableCaches` independently
+to attribute exactly how much of the overall deserialization improvement comes from each optimisation.
+Run via `DeserializeAttributionBenchmarks` in the benchmark project.
+
+| Method | Mean | Error | StdDev | Ratio | Gen0 | Gen1 | Allocated | Alloc Ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Both optimisations enabled *(baseline — after)* | 11.08 µs | 0.105 µs | 0.093 µs | 1.00 | 1.1902 | 0.2899 | 19.51 KB | 1.00 |
+| Span disabled, factory cache enabled | 11.79 µs | 0.111 µs | 0.104 µs | 1.06 | 1.1902 | 0.2899 | 19.54 KB | 1.00 |
+| Factory cache disabled, span enabled | 13.80 µs | 0.068 µs | 0.060 µs | 1.25 | 1.2817 | 0.3052 | 21.05 KB | 1.08 |
+
+**Attribution:**
+- **Factory cache** is responsible for the majority (~19%) of the end-to-end gain: removing it alone raises the mean from 11.08 µs to 13.80 µs (+2.72 µs, +8% more allocation).
+- **Span field splitting** contributes ~6% of the gain: removing it alone raises the mean from 11.08 µs to 11.79 µs (+0.71 µs). Allocation is almost unchanged because the same `string[]` elements are created either way.
+- Together the two optimisations account for the full ~22% improvement observed end-to-end.
+
+---
+
 ## Serialization benchmarks (`GetProperties()` reflection caching)
 
 | Method | Mean | Error | StdDev | Gen0 | Gen1 | Gen2 | Allocated |

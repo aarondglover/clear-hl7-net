@@ -19,6 +19,13 @@ namespace ClearHl7.Helpers
     internal static class FieldIndexer
     {
         /// <summary>
+        /// When true, bypasses the span-based splitting path and falls back to
+        /// <see cref="string.Split(string[], StringSplitOptions)"/> on every call.
+        /// Intended for benchmark comparison only; do not set this in production code.
+        /// </summary>
+        internal static bool DisableCaches { get; set; } = false;
+
+        /// <summary>
         /// Splits <paramref name="delimitedString"/> by the first element of
         /// <paramref name="separators"/> and returns the resulting fields as a <c>string[]</c>.
         /// </summary>
@@ -38,7 +45,8 @@ namespace ClearHl7.Helpers
 
 #if NET8_0_OR_GREATER
             // Fast path: extract the single separator char and use the vectorized span splitter.
-            if (separators != null && separators.Length > 0 &&
+            if (!DisableCaches &&
+                separators != null && separators.Length > 0 &&
                 separators[0] != null && separators[0].Length == 1)
             {
                 return SplitByChar(delimitedString, separators[0][0]);
@@ -66,7 +74,7 @@ namespace ClearHl7.Helpers
                 return Array.Empty<string>();
 
 #if NET8_0_OR_GREATER
-            if (separator != null && separator.Length == 1)
+            if (!DisableCaches && separator != null && separator.Length == 1)
                 return SplitByChar(delimitedString, separator[0]);
 #endif
             return delimitedString.Split(new[] { separator }, StringSplitOptions.None);
